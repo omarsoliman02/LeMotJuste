@@ -1,0 +1,29 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: game-service
+  # Valeurs par défaut pour le développement local (hors Docker).
+  # En conteneur, surchargées par les variables SPRING_DATASOURCE_* (docker-compose).
+  datasource:
+    url: jdbc:postgresql://localhost:5432/motus_games
+    username: motus
+    password: motus
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+# URLs des services appelés en Feign (surchargées par variables d'environnement en Docker).
+player-service:
+  url: ${PLAYER_SERVICE_URL:http://localhost:8081}
+score-service:
+  url: ${SCORE_SERVICE_URL:http://localhost:8083}
+
+# Paramètres du jeu Motus.
+game:
+  max-attempts: 6
+  dictionary-path: dictionnaire.txt
+  min-word-length: 4
+  max-word-length: 10
