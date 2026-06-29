@@ -1,0 +1,16 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: player-service
+  # Valeurs par défaut pour le développement local (hors Docker).
+  # En conteneur, surchargées par les variables SPRING_DATASOURCE_* (docker-compose).
+  datasource:
+    url: jdbc:postgresql://localhost:5432/motus_players
+    username: motus
+    password: motus
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
