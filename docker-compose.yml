@@ -1,0 +1,50 @@
+# Le Mot Juste — orchestration locale.
+# Pour l'instant : PostgreSQL (3 bases) + player-service + gateway.
+# game-service et score-service seront ajoutés ici plus tard.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: lemotjuste-postgres
+    environment:
+      POSTGRES_USER: motus
+      POSTGRES_PASSWORD: motus
+      POSTGRES_DB: motus
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U motus"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  player-service:
+    build: ./player-service
+    container_name: lemotjuste-player
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/motus_players
+      SPRING_DATASOURCE_USERNAME: motus
+      SPRING_DATASOURCE_PASSWORD: motus
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  gateway:
+    build: ./gateway
+    container_name: lemotjuste-gateway
+    environment:
+      PLAYER_SERVICE_URI: http://player-service:8081
+      GAME_SERVICE_URI: http://game-service:8082
+      SCORE_SERVICE_URI: http://score-service:8083
+    ports:
+      - "8080:8080"
+    depends_on:
+      - player-service
+
+volumes:
+  postgres-data:
