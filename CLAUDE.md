@@ -141,7 +141,7 @@ Notes d'implémentation :
   est indisponible, on logge un warning et la partie se termine quand même (résultat non historisé).
 - `dictionnaire.txt` : un mot par ligne ; filtré par longueur (`game.min/max-word-length`).
 
-### 5.3 score-service (8083) — À FAIRE (prochaine étape du binôme)
+### 5.3 score-service (8083) — IMPLÉMENTÉ
 
 | Méthode | Chemin | Corps | Réponse |
 |---------|--------|-------|---------|
@@ -150,10 +150,13 @@ Notes d'implémentation :
 | GET  | `/api/scores/leaderboard` | — | classement |
 | GET  | `/api/scores` | — | liste (admin) |
 
+`ScoreResponse` : `{ "id":1, "playerId":1, "gameId":10, "won":true, "attempts":3, "word":"CHEVAL", "playedAt":"..." }`
+`LeaderboardEntry` : `{ "playerId":1, "wins":2, "gamesPlayed":3 }` — trié par nombre de victoires décroissant.
+
 > ⚠️ **Contrat figé côté entrée** : game-service appelle déjà `POST /api/scores` avec exactement
 > `{ playerId, gameId, won, attempts, word }` (voir `RecordScoreRequest` dans game-service).
-> Le `POST` doit accepter ce corps tel quel. `attempts` = nombre d'essais utilisés (6 − essais restants).
-> Champs suggérés de l'entité `Score` : `id, playerId, gameId, won, attempts, word, playedAt`.
+> Le `POST` accepte ce corps tel quel. `attempts` = nombre d'essais utilisés (6 − essais restants).
+> Entité `Score` : `id, playerId, gameId, won, attempts, word, playedAt`.
 
 ---
 
@@ -238,7 +241,7 @@ Ports : gateway **8080**, player **8081**, game **8082**, score **8083**, Postgr
 - [x] **player-service** complet (patron de référence)
 - [x] **gateway** (routage)
 - [x] **game-service** (logique Motus, Feign → player + score, dictionnaire)
-- [ ] score-service (historique / stats / classement)
+- [x] **score-service** (historique / stats / classement)
 - [ ] frontend (page de démo)
 - [ ] manifests k8s / MiniKube
 - [ ] rapport PDF (5 pages)
@@ -247,25 +250,19 @@ Ports : gateway **8080**, player **8081**, game **8082**, score **8083**, Postgr
 
 ## 10. Reste à faire — guide pour le binôme
 
-Tout se fait en **reproduisant le patron** player-service / game-service (mêmes couches, même
-gestion d'erreurs, DTO en records, Dockerfile multi-stage, entrée dans docker-compose).
+Tout se fait en **reproduisant le patron** player-service / game-service / score-service (mêmes
+couches, même gestion d'erreurs, DTO en records, Dockerfile multi-stage, entrée dans docker-compose).
 
-### 10.1 score-service (8083) — prochaine priorité
-1. `pom.xml` calqué sur player-service (web, data-jpa, validation, postgresql, lombok, test).
-   Spring Cloud **inutile ici** (score-service ne fait que recevoir des appels).
-2. Package `fr.lemotjuste.score`. Base `motus_scores` (déjà créée par `init-db.sql`).
-3. Entité `Score` (`id, playerId, gameId, won, attempts, word, playedAt`) + `ScoreRepository`.
-4. Endpoints du §5.3. **Respecter le contrat d'entrée figé** `POST /api/scores`
-   `{ playerId, gameId, won, attempts, word }` (sinon game-service ne pourra plus historiser).
-5. Requêtes : historique par joueur (`findByPlayerIdOrderByPlayedAtDesc`), classement
-   (ex. nb de victoires par joueur, ou moyenne d'essais sur les parties gagnées).
-6. Réutiliser le patron `@RestControllerAdvice` + `ApiError`.
-7. Ajouter le service dans `docker-compose.yml` (port 8083, `SPRING_DATASOURCE_URL=.../motus_scores`).
-   La route gateway `/api/scores/**` et la variable `SCORE_SERVICE_URI` existent déjà.
-8. Une fois en place, retester une partie complète : le warning « Score non enregistré »
-   de game-service doit **disparaître** et le score apparaître via `GET /api/scores?playerId=...`.
+> ✅ **score-service (8083) — fait.** Package `fr.lemotjuste.score`, base `motus_scores`, entité
+> `Score` (`id, playerId, gameId, won, attempts, word, playedAt`), 4 endpoints du §5.3 (contrat
+> d'entrée figé `POST /api/scores` respecté), classement par nombre de victoires, tests repository
+> (`@DataJpaTest` + H2) et controller. Présent dans `docker-compose.yml`. En Spring Boot 4, le slice
+> `@DataJpaTest` vit dans le module `spring-boot-data-jpa-test` (ajouté en scope `test`).
+> Reste à valider de bout en bout : lancer une partie complète et vérifier que le warning
+> « Score non enregistré » de game-service **disparaît** et que le score remonte via
+> `GET /api/scores?playerId=...`.
 
-### 10.2 frontend (page de démo)
+### 10.1 frontend (page de démo)
 - HTML + JS vanilla dans `frontend/`, appels **uniquement** vers la gateway `http://localhost:8080`
   (le CORS est déjà ouvert côté gateway).
 - Écrans : choix/création du joueur → démarrage de partie (afficher longueur + 1re lettre) →
@@ -274,12 +271,12 @@ gestion d'erreurs, DTO en records, Dockerfile multi-stage, entrée dans docker-c
 - L'historique des essais d'une partie n'est **pas** persité côté serveur : le front conserve
   la liste des `GuessResponse` localement pour redessiner la grille.
 
-### 10.3 Déploiement k8s / MiniKube (`k8s/`)
+### 10.2 Déploiement k8s / MiniKube (`k8s/`)
 - Un `Deployment` + `Service` par composant (postgres, player, game, score, gateway).
 - `Secret` pour les identifiants Postgres, `ConfigMap`/env pour les URLs (Feign + datasource).
 - Optionnel : `Ingress` exposant la gateway. Charger les images dans MiniKube (`minikube image load`).
 
-### 10.4 Rapport PDF (5 pages max) — à rendre avant le **4 juillet 2026**
+### 10.3 Rapport PDF (5 pages max) — à rendre avant le **4 juillet 2026**
 Rubriques attendues : noms du binôme · compilation/exécution (renvoyer au README) ·
 documentation technique (schéma d'archi + diagramme de classes de `docs/architecture.md`,
 choix techniques) · bilan (ce qu'on a aimé/appris, difficultés). Envoi à mouloud.menceur@gmail.com.
