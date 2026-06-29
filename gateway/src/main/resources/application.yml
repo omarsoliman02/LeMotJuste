@@ -1,0 +1,31 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          # URIs surchargées par variables d'environnement en Docker (docker-compose).
+          routes:
+            - id: player-service
+              uri: ${PLAYER_SERVICE_URI:http://localhost:8081}
+              predicates:
+                - Path=/api/players/**
+            - id: game-service
+              uri: ${GAME_SERVICE_URI:http://localhost:8082}
+              predicates:
+                - Path=/api/games/**
+            - id: score-service
+              uri: ${SCORE_SERVICE_URI:http://localhost:8083}
+              predicates:
+                - Path=/api/scores/**
+          # CORS global : le frontend (page statique) n'appelle que la gateway.
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowed-origins: "*"
+                allowed-methods: "*"
+                allowed-headers: "*"
