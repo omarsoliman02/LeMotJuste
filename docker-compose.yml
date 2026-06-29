@@ -1,6 +1,6 @@
 # Le Mot Juste — orchestration locale.
-# Pour l'instant : PostgreSQL (3 bases) + player-service + gateway.
-# game-service et score-service seront ajoutés ici plus tard.
+# Pour l'instant : PostgreSQL (3 bases) + player-service + game-service + gateway.
+# score-service sera ajouté ici plus tard.
 
 services:
   postgres:
@@ -34,6 +34,23 @@ services:
       postgres:
         condition: service_healthy
 
+  game-service:
+    build: ./game-service
+    container_name: lemotjuste-game
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/motus_games
+      SPRING_DATASOURCE_USERNAME: motus
+      SPRING_DATASOURCE_PASSWORD: motus
+      PLAYER_SERVICE_URL: http://player-service:8081
+      SCORE_SERVICE_URL: http://score-service:8083
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      player-service:
+        condition: service_started
+
   gateway:
     build: ./gateway
     container_name: lemotjuste-gateway
@@ -45,6 +62,7 @@ services:
       - "8080:8080"
     depends_on:
       - player-service
+      - game-service
 
 volumes:
   postgres-data:
