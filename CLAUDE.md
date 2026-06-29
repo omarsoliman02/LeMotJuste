@@ -117,18 +117,31 @@ d'un autre service ; toute interaction passe par l'API REST / Feign).
 `PlayerResponse` : `{ "id": 1, "username": "alice", "createdAt": "2026-06-29T10:00:00Z" }`
 Contrainte : `username` non vide, 3–20 caractères, unique.
 
-### 5.2 game-service (8082) — À FAIRE
+### 5.2 game-service (8082) — IMPLÉMENTÉ
 
-| Méthode | Chemin | Corps | Réponse |
-|---------|--------|-------|---------|
-| POST | `/api/games` | `{ "playerId": 1 }` | `GameResponse` (id, wordLength, firstLetter, attemptsLeft, status) |
-| POST | `/api/games/{id}/guess` | `{ "word": "maison" }` | `GuessResponse` (liste `{letter, status}`, status partie, attemptsLeft) |
-| GET  | `/api/games/{id}` | — | `GameResponse` |
+| Méthode | Chemin | Corps | Réponse | Erreurs |
+|---------|--------|-------|---------|---------|
+| POST | `/api/games` | `{ "playerId": 1 }` | 201 `GameResponse` | 400 (playerId manquant / joueur inexistant), 503 (player-service injoignable) |
+| POST | `/api/games/{id}/guess` | `{ "word": "cheval" }` | 200 `GuessResponse` | 400 (mauvaise longueur / hors dictionnaire — essai non décompté), 404 (partie inconnue), 409 (partie terminée) |
+| GET  | `/api/games/{id}` | — | 200 `GameResponse` | 404 |
 
-Au POST `/api/games` : Feign → player-service pour vérifier que le joueur existe.
-En fin de partie (WON/LOST) : Feign → score-service pour enregistrer le résultat.
+`GameResponse` : `{ "id":1, "wordLength":6, "firstLetter":"C", "attemptsLeft":6, "status":"IN_PROGRESS" }`
+— le mot mystère n'est **jamais** exposé.
 
-### 5.3 score-service (8083) — À FAIRE
+`GuessResponse` : `{ "letters":[{"letter":"C","status":"CORRECT"}, …], "status":"WON", "attemptsLeft":5, "solution":"CHEVAL" }`
+- `letters` : un `LetterResult` par lettre (`CORRECT` / `PRESENT` / `ABSENT`).
+- `solution` : `null` tant que `IN_PROGRESS`, renseigné en fin de partie (WON/LOST).
+
+Notes d'implémentation :
+- Tous les mots (dictionnaire, mot mystère, propositions) sont **normalisés** : majuscules, sans
+  accents (`TextNormalizer`). Le jeu est donc insensible à la casse et aux accents.
+- POST `/api/games` : Feign → player-service (`GET /api/players/{id}`) pour vérifier le joueur.
+  404 → 400 « joueur inexistant » ; indisponibilité réseau → 503.
+- Fin de partie : Feign → score-service (`POST /api/scores`) **en best-effort** — si score-service
+  est indisponible, on logge un warning et la partie se termine quand même (résultat non historisé).
+- `dictionnaire.txt` : un mot par ligne ; filtré par longueur (`game.min/max-word-length`).
+
+### 5.3 score-service (8083) — À FAIRE (prochaine étape du binôme)
 
 | Méthode | Chemin | Corps | Réponse |
 |---------|--------|-------|---------|
@@ -136,6 +149,11 @@ En fin de partie (WON/LOST) : Feign → score-service pour enregistrer le résul
 | GET  | `/api/scores?playerId=1` | — | historique d'un joueur |
 | GET  | `/api/scores/leaderboard` | — | classement |
 | GET  | `/api/scores` | — | liste (admin) |
+
+> ⚠️ **Contrat figé côté entrée** : game-service appelle déjà `POST /api/scores` avec exactement
+> `{ playerId, gameId, won, attempts, word }` (voir `RecordScoreRequest` dans game-service).
+> Le `POST` doit accepter ce corps tel quel. `attempts` = nombre d'essais utilisés (6 − essais restants).
+> Champs suggérés de l'entité `Score` : `id, playerId, gameId, won, attempts, word, playedAt`.
 
 ---
 
@@ -167,7 +185,7 @@ nombre réel de `L` restants après la passe 1 — d'où l'intérêt des 2 passe
 
 ### Tout lancer (Docker)
 ```bash
-docker compose up --build        # Postgres + player-service + gateway
+docker compose up --build        # Postgres + player-service + game-service + gateway
 docker compose down              # arrêt
 docker compose down -v           # arrêt + suppression des données Postgres
 ```
@@ -186,8 +204,13 @@ mvn clean package                # build du jar
 
 ### Vérifier que ça tourne
 ```bash
+# joueurs
 curl -s -X POST localhost:8080/api/players -H 'Content-Type: application/json' -d '{"username":"alice"}'
 curl -s localhost:8080/api/players
+
+# une partie (player id 1) : démarrer, puis proposer un mot
+curl -s -X POST localhost:8080/api/games -H 'Content-Type: application/json' -d '{"playerId":1}'
+curl -s -X POST localhost:8080/api/games/1/guess -H 'Content-Type: application/json' -d '{"word":"cheval"}'
 ```
 
 Ports : gateway **8080**, player **8081**, game **8082**, score **8083**, Postgres **5432**.
@@ -214,8 +237,49 @@ Ports : gateway **8080**, player **8081**, game **8082**, score **8083**, Postgr
 - [x] Socle monorepo (dossiers, docker-compose, init-db, docs)
 - [x] **player-service** complet (patron de référence)
 - [x] **gateway** (routage)
-- [ ] game-service (logique Motus)
+- [x] **game-service** (logique Motus, Feign → player + score, dictionnaire)
 - [ ] score-service (historique / stats / classement)
 - [ ] frontend (page de démo)
 - [ ] manifests k8s / MiniKube
 - [ ] rapport PDF (5 pages)
+
+---
+
+## 10. Reste à faire — guide pour le binôme
+
+Tout se fait en **reproduisant le patron** player-service / game-service (mêmes couches, même
+gestion d'erreurs, DTO en records, Dockerfile multi-stage, entrée dans docker-compose).
+
+### 10.1 score-service (8083) — prochaine priorité
+1. `pom.xml` calqué sur player-service (web, data-jpa, validation, postgresql, lombok, test).
+   Spring Cloud **inutile ici** (score-service ne fait que recevoir des appels).
+2. Package `fr.lemotjuste.score`. Base `motus_scores` (déjà créée par `init-db.sql`).
+3. Entité `Score` (`id, playerId, gameId, won, attempts, word, playedAt`) + `ScoreRepository`.
+4. Endpoints du §5.3. **Respecter le contrat d'entrée figé** `POST /api/scores`
+   `{ playerId, gameId, won, attempts, word }` (sinon game-service ne pourra plus historiser).
+5. Requêtes : historique par joueur (`findByPlayerIdOrderByPlayedAtDesc`), classement
+   (ex. nb de victoires par joueur, ou moyenne d'essais sur les parties gagnées).
+6. Réutiliser le patron `@RestControllerAdvice` + `ApiError`.
+7. Ajouter le service dans `docker-compose.yml` (port 8083, `SPRING_DATASOURCE_URL=.../motus_scores`).
+   La route gateway `/api/scores/**` et la variable `SCORE_SERVICE_URI` existent déjà.
+8. Une fois en place, retester une partie complète : le warning « Score non enregistré »
+   de game-service doit **disparaître** et le score apparaître via `GET /api/scores?playerId=...`.
+
+### 10.2 frontend (page de démo)
+- HTML + JS vanilla dans `frontend/`, appels **uniquement** vers la gateway `http://localhost:8080`
+  (le CORS est déjà ouvert côté gateway).
+- Écrans : choix/création du joueur → démarrage de partie (afficher longueur + 1re lettre) →
+  saisie des propositions et rendu de la grille (couleurs selon `CORRECT`/`PRESENT`/`ABSENT`) →
+  fin de partie (afficher `solution`) → historique/classement via `/api/scores`.
+- L'historique des essais d'une partie n'est **pas** persité côté serveur : le front conserve
+  la liste des `GuessResponse` localement pour redessiner la grille.
+
+### 10.3 Déploiement k8s / MiniKube (`k8s/`)
+- Un `Deployment` + `Service` par composant (postgres, player, game, score, gateway).
+- `Secret` pour les identifiants Postgres, `ConfigMap`/env pour les URLs (Feign + datasource).
+- Optionnel : `Ingress` exposant la gateway. Charger les images dans MiniKube (`minikube image load`).
+
+### 10.4 Rapport PDF (5 pages max) — à rendre avant le **4 juillet 2026**
+Rubriques attendues : noms du binôme · compilation/exécution (renvoyer au README) ·
+documentation technique (schéma d'archi + diagramme de classes de `docs/architecture.md`,
+choix techniques) · bilan (ce qu'on a aimé/appris, difficultés). Envoi à mouloud.menceur@gmail.com.

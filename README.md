@@ -11,7 +11,7 @@ Jeu **Motus** en microservices Spring Boot — projet M2 « Applications Web ori
 |---------|------|------|------|
 | gateway | 8080 | point d'entrée unique (Spring Cloud Gateway) | — |
 | player-service | 8081 | enregistrement / gestion des joueurs | `motus_players` |
-| game-service | 8082 | logique du jeu Motus *(à venir)* | `motus_games` |
+| game-service | 8082 | logique du jeu Motus (mot mystère, validation, calcul) | `motus_games` |
 | score-service | 8083 | historique, statistiques, classement *(à venir)* | `motus_scores` |
 
 Un seul conteneur PostgreSQL héberge les trois bases. Communication inter-services en
@@ -25,7 +25,7 @@ Prérequis : Docker + Docker Compose.
 docker compose up --build
 ```
 
-Cela lance PostgreSQL (avec les 3 bases), player-service et la gateway.
+Cela lance PostgreSQL (avec les 3 bases), player-service, game-service et la gateway.
 
 Test :
 
@@ -36,6 +36,12 @@ curl -s -X POST localhost:8080/api/players \
 
 # lister les joueurs
 curl -s localhost:8080/api/players
+
+# démarrer une partie puis proposer un mot
+curl -s -X POST localhost:8080/api/games \
+  -H 'Content-Type: application/json' -d '{"playerId":1}'
+curl -s -X POST localhost:8080/api/games/1/guess \
+  -H 'Content-Type: application/json' -d '{"word":"cheval"}'
 ```
 
 Arrêt : `docker compose down` (ajouter `-v` pour effacer les données Postgres).
@@ -55,7 +61,7 @@ Maven doit utiliser le JDK 21 (`JAVA_HOME=$(/usr/libexec/java_home -v 21) mvn ..
 ```
 .
 ├── player-service/   # microservice joueurs (patron de référence)
-├── game-service/     # (à venir)
+├── game-service/     # microservice jeu Motus (logique, dictionnaire, Feign)
 ├── score-service/    # (à venir)
 ├── gateway/          # Spring Cloud Gateway
 ├── frontend/         # page de démo (à venir)
