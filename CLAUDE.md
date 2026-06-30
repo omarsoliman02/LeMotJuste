@@ -143,6 +143,15 @@ Notes d'implémentation :
   `dictionnaire.txt` = mots-mystères courants (tirage de la solution) ; `mots-valides.txt` = liste
   large des mots acceptés à la validation d'une proposition. Une proposition est valable si elle
   figure dans l'une des deux.
+- **Données lexicales réelles** (régénérables) : `mots-valides.txt` = tout le dictionnaire FR
+  Hunspell/Dicollecte (~182 000 mots de 4 à 10 lettres) ; `dictionnaire.txt` = ~5 000 mots
+  **fréquents** (OpenSubtitles) qui sont aussi de vrais mots → solutions courantes et justes.
+  Pour régénérer après avoir changé les sources ou les longueurs :
+  ```bash
+  ./scripts/build-dictionaries.sh        # télécharge les sources, normalise, écrit les 2 fichiers
+  ```
+  Le script normalise (minuscules, sans accents, `œ→oe`/`æ→ae`, lettres a-z, longueur 4-10) et
+  dédoublonne. Sources : `words/an-array-of-french-words` (Hunspell) et `hermitdave/FrequencyWords`.
 
 ### 5.3 score-service (8083) — IMPLÉMENTÉ
 
@@ -262,9 +271,9 @@ couches, même gestion d'erreurs, DTO en records, Dockerfile multi-stage, entré
 > d'entrée figé `POST /api/scores` respecté), classement par nombre de victoires, tests repository
 > (`@DataJpaTest` + H2) et controller. Présent dans `docker-compose.yml`. En Spring Boot 4, le slice
 > `@DataJpaTest` vit dans le module `spring-boot-data-jpa-test` (ajouté en scope `test`).
-> Reste à valider de bout en bout : lancer une partie complète et vérifier que le warning
-> « Score non enregistré » de game-service **disparaît** et que le score remonte via
-> `GET /api/scores?playerId=...`.
+> ✅ **Validé de bout en bout** : partie complète jouée via la gateway → le score est bien
+> enregistré (plus de warning « Score non enregistré » côté game-service), et il remonte via
+> `GET /api/scores?playerId=...` et `GET /api/scores/leaderboard`.
 
 > ✅ **frontend — fait.** Page statique HTML + JS vanilla dans `frontend/` (`index.html`,
 > `styles.css`, `app.js`), sans build ni dépendance, qui appelle **uniquement** la gateway.
