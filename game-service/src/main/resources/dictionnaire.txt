@@ -25,6 +25,7 @@ accomplir
 accord
 accorde
 accorder
+accro
 accroche
 accrocher
 accueil
@@ -128,6 +129,7 @@ alcool
 alcoolique
 alerte
 alibi
+alien
 allaient
 allais
 allait
@@ -210,8 +212,8 @@ apercu
 apparait
 appareil
 apparence
+appart
 appartient
-apparu
 appat
 appel
 appelait
@@ -334,7 +336,6 @@ attendrai
 attendre
 attends
 attendu
-attentat
 attente
 attention
 atterri
@@ -395,12 +396,10 @@ avantages
 avec
 avenir
 aventure
-aventures
 avenue
 avere
 avertir
 aveugle
-aveux
 avez
 aviez
 avion
@@ -435,7 +434,6 @@ baisser
 baissez
 balade
 balader
-balai
 balance
 balancer
 balle
@@ -448,7 +446,6 @@ bandes
 bang
 banque
 banques
-baraque
 barbe
 barbecue
 barman
@@ -456,8 +453,8 @@ baron
 barrage
 barre
 barriere
-bars
 base
+baseball
 bases
 basket
 basse
@@ -493,7 +490,6 @@ bete
 betes
 betise
 betises
-beton
 beurre
 bible
 bidon
@@ -511,6 +507,7 @@ billets
 bingo
 biologique
 biscuits
+bishop
 bisou
 bite
 bizarre
@@ -536,6 +533,7 @@ bleus
 bloc
 blonde
 bloque
+bobby
 boire
 bois
 boisson
@@ -558,7 +556,6 @@ bonte
 boom
 bord
 bordel
-bornes
 boss
 bosse
 bosser
@@ -678,6 +675,7 @@ caravane
 carburant
 cardiaque
 carnet
+caroline
 carrement
 carriere
 carte
@@ -694,6 +692,7 @@ casse
 cassee
 casser
 cassette
+cassie
 catholique
 cauchemar
 cauchemars
@@ -756,6 +755,7 @@ champ
 champagne
 champion
 champs
+chan
 chance
 chances
 chanceux
@@ -764,7 +764,6 @@ changement
 changent
 changer
 changera
-changes
 changez
 chanson
 chansons
@@ -853,7 +852,6 @@ choisis
 choisissez
 choisit
 choix
-chomage
 choper
 chose
 choses
@@ -878,7 +876,6 @@ cinquante
 cinquieme
 circuit
 cirque
-ciseaux
 cite
 citoyen
 citoyens
@@ -891,8 +888,11 @@ claire
 clairement
 clan
 claque
+clark
 classe
 classique
+clay
+clean
 clef
 cles
 client
@@ -902,9 +902,7 @@ clinique
 cloche
 clown
 club
-clubs
 coach
-coca
 cocaine
 cochon
 cochons
@@ -977,7 +975,6 @@ compliment
 complique
 complot
 comprend
-comprendra
 comprendre
 comprends
 comprenez
@@ -1031,6 +1028,7 @@ connait
 connaitre
 connard
 connards
+conne
 connerie
 conneries
 connexion
@@ -1075,6 +1073,7 @@ convaincre
 convaincu
 conviction
 convient
+cookies
 cool
 cooperer
 copain
@@ -1208,6 +1207,7 @@ danser
 danseuse
 date
 davantage
+deal
 dealer
 debat
 debile
@@ -1226,8 +1226,6 @@ decider
 decision
 decisions
 declare
-declarer
-decoller
 deconne
 deconner
 decouvert
@@ -1342,7 +1340,6 @@ destin
 destinee
 detail
 details
-detecteur
 detective
 detendre
 detention
@@ -1619,7 +1616,6 @@ empeche
 empecher
 empereur
 empire
-empirer
 emploi
 employe
 employes
@@ -1636,8 +1632,8 @@ enchantee
 encheres
 encore
 encre
+encule
 endormi
-endormie
 endormir
 endroit
 endroits
@@ -1712,7 +1708,6 @@ enverrai
 envers
 envie
 environ
-environs
 envoie
 envoient
 envoye
@@ -1794,7 +1789,6 @@ eternel
 eternelle
 eternite
 etes
-ethique
 etiez
 etions
 etoile
@@ -1914,6 +1908,7 @@ familiale
 familier
 famille
 familles
+fans
 fantome
 fantomes
 farce
@@ -1934,7 +1929,6 @@ faute
 fauteuil
 faux
 faveur
-favori
 federal
 federation
 federaux
@@ -2006,6 +2000,7 @@ finis
 finisse
 finissent
 finit
+finn
 fins
 fiston
 fixe
@@ -2020,9 +2015,7 @@ fleuve
 flic
 flics
 flingue
-flippant
 flipper
-florence
 flotte
 foie
 foire
@@ -2079,7 +2072,6 @@ frais
 franc
 francais
 francaise
-franchir
 francs
 frappe
 frappee
@@ -2104,7 +2096,6 @@ fuite
 fume
 fumee
 fumer
-fumier
 furent
 furieuse
 furieux
@@ -2255,6 +2246,7 @@ hauts
 have
 hein
 helas
+helico
 hello
 hemorragie
 henry
@@ -2263,7 +2255,6 @@ heritage
 heritier
 heroine
 heros
-hesite
 heure
 heures
 heureuse
@@ -2297,6 +2288,7 @@ horribles
 hors
 hote
 hotel
+house
 huile
 huit
 humain
@@ -2306,6 +2298,7 @@ humains
 humanite
 humeur
 humour
+hunter
 hurler
 ideal
 idee
@@ -2369,8 +2362,10 @@ infiniment
 infirmerie
 infirmiere
 influence
+info
 informe
 informer
+infos
 ingenieur
 inhabituel
 injuste
@@ -2390,7 +2385,6 @@ insense
 insiste
 inspecteur
 inspire
-instable
 installe
 installer
 instant
@@ -2439,7 +2433,7 @@ irez
 irlandais
 irons
 iront
-isole
+isabelle
 issue
 italien
 ivre
@@ -2509,6 +2503,7 @@ juifs
 juillet
 juin
 jules
+julie
 jumeaux
 jungle
 junior
@@ -2518,10 +2513,12 @@ jusque
 juste
 justement
 justice
+karen
 khan
 kidnappe
 kilometres
 kilos
+labo
 lache
 lacher
 laches
@@ -2573,7 +2570,6 @@ lequel
 lesbienne
 lesquelles
 lesquels
-lessive
 lettre
 lettres
 leur
@@ -2600,6 +2596,7 @@ lieux
 ligne
 lignes
 ligue
+like
 limite
 limites
 linge
@@ -2608,11 +2605,11 @@ liquide
 lire
 lisez
 liste
-lits
 livraison
 livre
 livrer
 livres
+lloyd
 local
 locale
 localiser
@@ -2636,6 +2633,7 @@ louche
 loue
 louer
 louis
+louise
 loup
 loupe
 loups
@@ -2658,6 +2656,7 @@ machin
 machine
 machines
 madame
+madison
 mafia
 magasin
 magasins
@@ -2696,6 +2695,7 @@ malheur
 malheureux
 malin
 mallette
+mama
 maman
 mamie
 manager
@@ -2706,6 +2706,7 @@ mangent
 manger
 manges
 mangez
+manhattan
 maniere
 manieres
 manipuler
@@ -2719,6 +2720,7 @@ manteau
 manuel
 maquillage
 marc
+marcel
 marchait
 marchand
 marche
@@ -2747,6 +2749,7 @@ marrant
 marre
 mars
 marteau
+martin
 masque
 massacre
 massage
@@ -2811,7 +2814,6 @@ menu
 merci
 mercredi
 merde
-merdes
 merdique
 mere
 meres
@@ -2925,6 +2927,7 @@ montrent
 montrer
 montres
 montrez
+moore
 moque
 moquer
 moques
@@ -2938,7 +2941,6 @@ morgue
 mort
 morte
 mortel
-mortelle
 mortes
 morts
 motel
@@ -2966,7 +2968,6 @@ musee
 musique
 mystere
 mysterieux
-nage
 nager
 naissance
 nana
@@ -3119,6 +3120,7 @@ origine
 oscar
 otage
 otages
+ouah
 ouais
 oublie
 oublier
@@ -3213,7 +3215,6 @@ partent
 partes
 partez
 parti
-participe
 participer
 partie
 parties
@@ -3265,6 +3266,7 @@ peau
 peche
 pecher
 peches
+pede
 peindre
 peine
 peint
@@ -3288,7 +3290,6 @@ penses
 pensez
 pensiez
 pension
-pensions
 pensons
 perd
 perdant
@@ -3344,6 +3345,7 @@ pied
 pieds
 piege
 pieger
+pierce
 pierre
 pierres
 pige
@@ -3604,7 +3606,6 @@ prise
 prises
 prison
 prisonnier
-prit
 prive
 privee
 prix
@@ -3627,7 +3628,6 @@ produit
 produits
 prof
 professeur
-profession
 profil
 profit
 profite
@@ -3670,7 +3670,6 @@ prudente
 psychiatre
 public
 publicite
-publie
 publique
 puce
 puis
@@ -3752,7 +3751,6 @@ range
 ranger
 rapide
 rapidement
-rapides
 rappele
 rappeler
 rappelez
@@ -3856,7 +3854,6 @@ relecture
 releve
 relever
 releves
-religieux
 religion
 remarque
 remarquer
@@ -3905,7 +3902,6 @@ rentres
 rentrez
 rentrons
 renverse
-renverser
 renvoie
 renvoye
 renvoyer
@@ -3974,6 +3970,7 @@ restera
 resterai
 restes
 restez
+resto
 restons
 resultat
 resultats
@@ -3987,7 +3984,6 @@ retire
 retirer
 retour
 retourne
-retournee
 retourner
 retournes
 retournez
@@ -4003,7 +3999,6 @@ reunir
 reunis
 reussi
 reussir
-reussit
 reussite
 revanche
 reve
@@ -4015,7 +4010,6 @@ revele
 reveler
 revenez
 revenir
-revenons
 revenu
 revenue
 revenus
@@ -4029,8 +4023,8 @@ revienne
 reviennent
 reviens
 revient
+revoila
 revoir
-revois
 revolution
 revolver
 revu
@@ -4135,11 +4129,14 @@ salue
 saluer
 salut
 samedi
+sammy
 sandwich
 sang
 sans
 sante
 saoul
+sara
+satan
 satellite
 satisfaire
 satisfait
@@ -4194,7 +4191,6 @@ secrete
 secrets
 secteur
 section
-securise
 securite
 seigneur
 sein
@@ -4379,7 +4375,6 @@ souffrir
 souhaite
 souhaiter
 souhaitez
-soupcons
 soupe
 souper
 soupir
@@ -4421,6 +4416,7 @@ statue
 statut
 steak
 stock
+stone
 stop
 stopper
 strategie
@@ -4490,6 +4486,7 @@ suspects
 symbole
 sympa
 symptomes
+synchro
 syndicat
 syndrome
 systeme
@@ -4498,7 +4495,6 @@ tabac
 table
 tableau
 tableaux
-tables
 tache
 tactique
 taille
@@ -4525,8 +4521,10 @@ taupe
 taureau
 taux
 taxi
+team
 technique
 techniques
+teddy
 tele
 telephone
 telephoner
@@ -4579,11 +4577,13 @@ tests
 tete
 tetes
 texte
+texto
 theatre
 theme
 theorie
 therapeute
 therapie
+thomas
 ticket
 tickets
 tien
@@ -4594,7 +4594,6 @@ tiens
 tient
 tigre
 timide
-timing
 tire
 tirer
 tires
@@ -4607,6 +4606,7 @@ tissus
 titre
 titres
 toast
+toby
 toile
 toilette
 toilettes
@@ -4621,7 +4621,6 @@ tonnerre
 tonnes
 tordu
 tort
-tortue
 torture
 torturer
 total
@@ -4720,6 +4719,7 @@ trouveront
 trouves
 trouvez
 trouvons
+troy
 truc
 trucs
 tube
@@ -4760,7 +4760,6 @@ utilise
 utilisee
 utilisent
 utiliser
-utilises
 utilisez
 vacances
 vache
@@ -4777,7 +4776,6 @@ vais
 vaisseau
 vaisseaux
 vaisselle
-valable
 valait
 valent
 valeur
@@ -4835,7 +4833,6 @@ verre
 verres
 verrez
 verrons
-verront
 vers
 version
 vert
@@ -4990,9 +4987,12 @@ vrais
 vues
 vulgaire
 vulnerable
+wallace
 whisky
+williams
 yang
 yeux
+york
 zero
 zombie
 zombies
