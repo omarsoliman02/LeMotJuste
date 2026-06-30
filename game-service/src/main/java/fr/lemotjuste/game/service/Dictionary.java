@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
@@ -14,23 +15,39 @@ import org.springframework.stereotype.Component;
 
 /**
  * Dictionnaire FR chargé une fois au démarrage depuis les ressources.
- * Les mots sont normalisés (majuscules, sans accents) et filtrés par longueur.
+ * Deux listes, comme dans Wordle :
+ *  - les mots-mystères, courants, dans lesquels on tire la solution ;
+ *  - les mots acceptés, beaucoup plus larges, qui valident une proposition.
+ * Tous les mots sont normalisés (majuscules, sans accents) et filtrés par longueur.
  */
 @Component
 public class Dictionary {
 
-    private final List<String> words;
-    private final Set<String> wordSet;
+    private final List<String> answers;
+    private final Set<String> accepted;
 
     public Dictionary(
-            @Value("${game.dictionary-path:dictionnaire.txt}") String path,
+            @Value("${game.dictionary-path:dictionnaire.txt}") String answersPath,
+            @Value("${game.accepted-words-path:mots-valides.txt}") String acceptedPath,
             @Value("${game.min-word-length:4}") int minLength,
             @Value("${game.max-word-length:10}") int maxLength) {
 
+        this.answers = load(answersPath, minLength, maxLength);
+        if (answers.isEmpty()) {
+            throw new IllegalStateException("Le dictionnaire des mots-mystères « " + answersPath + " » est vide.");
+        }
+
+        // Une proposition est valide si elle figure parmi les mots acceptés ou les mots-mystères.
+        Set<String> all = new HashSet<>(answers);
+        all.addAll(load(acceptedPath, minLength, maxLength));
+        this.accepted = Set.copyOf(all);
+    }
+
+    private static List<String> load(String path, int minLength, int maxLength) {
         ClassPathResource resource = new ClassPathResource(path);
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8))) {
-            this.words = reader.lines()
+            return reader.lines()
                     .map(TextNormalizer::normalize)
                     .filter(word -> word.length() >= minLength && word.length() <= maxLength)
                     .filter(word -> word.chars().allMatch(Character::isLetter))
@@ -39,24 +56,19 @@ public class Dictionary {
         } catch (IOException e) {
             throw new UncheckedIOException("Impossible de charger le dictionnaire : " + path, e);
         }
-
-        if (words.isEmpty()) {
-            throw new IllegalStateException("Le dictionnaire « " + path + " » est vide.");
-        }
-        this.wordSet = Set.copyOf(words);
     }
 
-    /** Tire un mot au hasard (déjà normalisé). */
+    /** Tire un mot-mystère au hasard (déjà normalisé). */
     public String randomWord() {
-        return words.get(ThreadLocalRandom.current().nextInt(words.size()));
+        return answers.get(ThreadLocalRandom.current().nextInt(answers.size()));
     }
 
-    /** Indique si une proposition (normalisée à la volée) figure dans le dictionnaire. */
+    /** Indique si une proposition (normalisée à la volée) est un mot accepté. */
     public boolean contains(String word) {
-        return wordSet.contains(TextNormalizer.normalize(word));
+        return accepted.contains(TextNormalizer.normalize(word));
     }
 
     public int size() {
-        return words.size();
+        return answers.size();
     }
 }

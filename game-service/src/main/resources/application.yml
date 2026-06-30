@@ -25,5 +25,6 @@ score-service:
 game:
   max-attempts: 6
   dictionary-path: dictionnaire.txt
+  accepted-words-path: mots-valides.txt
   min-word-length: 4
   max-word-length: 10
