@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Tout est déployé dans le namespace lemotjuste (injecté dans chaque ressource).
+namespace: lemotjuste
+
+resources:
+  - namespace.yaml
+  - postgres-secret.yaml
+  - postgres-init-configmap.yaml
+  - app-config.yaml
+  - postgres.yaml
+  - player-service.yaml
+  - game-service.yaml
+  - score-service.yaml
+  - gateway.yaml
+  - ingress.yaml

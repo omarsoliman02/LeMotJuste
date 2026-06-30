@@ -256,7 +256,7 @@ Ports : gateway **8080**, player **8081**, game **8082**, score **8083**, Postgr
 - [x] **game-service** (logique Motus, Feign → player + score, dictionnaire)
 - [x] **score-service** (historique / stats / classement)
 - [x] **frontend** (page de démo)
-- [ ] manifests k8s / MiniKube
+- [x] **manifests k8s / MiniKube** (`k8s/`, déployable via `kubectl apply -k k8s/`)
 - [ ] rapport PDF (5 pages)
 
 ---
@@ -285,10 +285,15 @@ couches, même gestion d'erreurs, DTO en records, Dockerfile multi-stage, entré
 > Lancer avec `./serve.sh` (sert directement `frontend/` sur le port 5500, sans listing) ;
 > gateway surchargeable par `?api=`.
 
-### 10.1 Déploiement k8s / MiniKube (`k8s/`)
-- Un `Deployment` + `Service` par composant (postgres, player, game, score, gateway).
-- `Secret` pour les identifiants Postgres, `ConfigMap`/env pour les URLs (Feign + datasource).
-- Optionnel : `Ingress` exposant la gateway. Charger les images dans MiniKube (`minikube image load`).
+### 10.1 Déploiement k8s / MiniKube (`k8s/`) — ✅ fait
+- Un `Deployment` + `Service` par composant (postgres, player, game, score, gateway), namespace
+  `lemotjuste`, le tout regroupé par un `kustomization.yaml`.
+- `Secret` pour les identifiants Postgres ; `ConfigMap` `postgres-init` (création des 3 bases) et
+  `app-config` (URLs Feign + routage gateway) ; `PVC` pour Postgres.
+- gateway exposée en `NodePort 30080` ; `Ingress` optionnel (`lemotjuste.local`).
+- Chaque service attend Postgres via un `initContainer`, sondes readiness/liveness TCP.
+- Déploiement : `kubectl apply -k k8s/` (détails et build des images dans [`k8s/README.md`](k8s/README.md)).
+- Validation hors cluster : `kubectl kustomize k8s/`.
 
 ### 10.2 Rapport PDF (5 pages max) — à rendre avant le **4 juillet 2026**
 Rubriques attendues : noms du binôme · compilation/exécution (renvoyer au README) ·
