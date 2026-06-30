@@ -298,6 +298,8 @@ couches, même gestion d'erreurs, DTO en records, Dockerfile multi-stage, entré
 - Validation hors cluster : `kubectl kustomize k8s/`.
 
 ### 10.2 Rapport PDF (5 pages max) — à rendre avant le **4 juillet 2026**
-Rubriques attendues : noms du binôme · compilation/exécution (renvoyer au README) ·
-documentation technique (schéma d'archi + diagramme de classes de `docs/architecture.md`,
-choix techniques) · bilan (ce qu'on a aimé/appris, difficultés). Envoi à mouloud.menceur@gmail.com.
+Brouillon LaTeX dans `docs/rapport.tex` (compile sur Overleaf, `pdflatex` en 2 passes ;
+schéma d'archi et diagramme de classes en TikZ). Reste à compléter : noms du binôme, lien
+du dépôt, et éventuellement une capture du frontend. Rubriques : noms du binôme ·
+compilation/exécution (renvoyer au README) · documentation technique (architecture, choix
+techniques) · bilan (ce qu'on a aimé/appris, difficultés). Envoi à mouloud.menceur@gmail.com.
