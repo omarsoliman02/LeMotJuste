@@ -2,16 +2,18 @@
 #
 # Génère les deux listes de mots de game-service à partir de sources lexicales publiques.
 #
-#   - mots-valides.txt   : TOUS les mots français valides (dictionnaire Hunspell / Dicollecte),
-#                          utilisés pour valider une proposition.
+#   - mots-valides.txt   : TOUS les mots français valides, = dictionnaire Hunspell / Dicollecte
+#                          UNION le dictionnaire Scrabble ODS8 (plus permissif : argot, formes
+#                          rares…). Utilisés pour valider une proposition.
 #   - dictionnaire.txt   : les mots-mystères, = mots les plus fréquents (OpenSubtitles) qui sont
-#                          aussi de vrais mots du dictionnaire → des solutions courantes et justes.
+#                          aussi de vrais mots → des solutions courantes et justes.
 #
 # Tous les mots sont passés en minuscules, sans accents (œ→oe, æ→ae), lettres a-z uniquement,
 # de longueur 4 à 10, dédoublonnés. game-service re-normalise de toute façon au chargement.
 #
 # Sources (licences libres, citées dans le rapport) :
 #   - https://github.com/words/an-array-of-french-words  (Hunspell FR, ~336k mots)
+#   - https://github.com/Thecoolsim/French-Scrabble-ODS8  (ODS8 — Officiel du Scrabble 2021)
 #   - https://github.com/hermitdave/FrequencyWords        (fréquences OpenSubtitles 2018)
 #
 # Usage :  ./scripts/build-dictionaries.sh
@@ -29,10 +31,12 @@ MIN_LEN="${MIN_LEN:-4}"
 MAX_LEN="${MAX_LEN:-10}"
 
 HUNSPELL_URL="https://raw.githubusercontent.com/words/an-array-of-french-words/master/index.json"
+ODS_URL="https://raw.githubusercontent.com/Thecoolsim/French-Scrabble-ODS8/main/French%20ODS%20dictionary.txt"
 FREQ_URL="https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/fr/fr_50k.txt"
 
 echo "→ Téléchargement des sources…"
 curl -fsSL "$HUNSPELL_URL" -o "$TMP/hunspell.json"
+curl -fsSL "$ODS_URL"      -o "$TMP/ods.txt"
 curl -fsSL "$FREQ_URL"     -o "$TMP/freq.txt"
 
 echo "→ Génération des listes (longueur $MIN_LEN-$MAX_LEN, mots-mystères ≤ $ANSWERS_MAX)…"
@@ -53,8 +57,10 @@ def norm(w):
 def keep(w):
     return re.fullmatch(r"[a-z]+", w) is not None and min_len <= len(w) <= max_len
 
-# 1) Tous les mots valides (Hunspell)
+# 1) Tous les mots valides : Hunspell UNION ODS8 (Scrabble, plus permissif)
 valid = {n for w in json.load(open(tmp + "/hunspell.json")) if keep(n := norm(w))}
+with open(tmp + "/ods.txt", encoding="utf-8") as f:
+    valid |= {n for line in f if keep(n := norm(line))}
 
 # 2) Mots-mystères : fréquence décroissante (OpenSubtitles) ∩ vrais mots
 answers, seen = [], set()
@@ -74,7 +80,7 @@ with open(out + "/mots-valides.txt", "w", encoding="utf-8") as f:
 with open(out + "/dictionnaire.txt", "w", encoding="utf-8") as f:
     f.write("\n".join(sorted(answers)) + "\n")
 
-print(f"   mots-valides.txt : {len(valid)} mots")
+print(f"   mots-valides.txt : {len(valid)} mots (Hunspell ∪ ODS8)")
 print(f"   dictionnaire.txt : {len(answers)} mots-mystères")
 PY
 
