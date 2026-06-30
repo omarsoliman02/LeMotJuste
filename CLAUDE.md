@@ -139,7 +139,10 @@ Notes d'implémentation :
   404 → 400 « joueur inexistant » ; indisponibilité réseau → 503.
 - Fin de partie : Feign → score-service (`POST /api/scores`) **en best-effort** — si score-service
   est indisponible, on logge un warning et la partie se termine quand même (résultat non historisé).
-- `dictionnaire.txt` : un mot par ligne ; filtré par longueur (`game.min/max-word-length`).
+- Deux listes (comme Wordle), un mot par ligne, filtrées par longueur (`game.min/max-word-length`) :
+  `dictionnaire.txt` = mots-mystères courants (tirage de la solution) ; `mots-valides.txt` = liste
+  large des mots acceptés à la validation d'une proposition. Une proposition est valable si elle
+  figure dans l'une des deux.
 
 ### 5.3 score-service (8083) — IMPLÉMENTÉ
 
@@ -162,9 +165,10 @@ Notes d'implémentation :
 
 ## 6. Spec de l'algorithme Motus
 
-1. **Mot mystère** tiré aléatoirement du dictionnaire FR
+1. **Mot mystère** tiré aléatoirement parmi les mots-mystères courants
    (`game-service/src/main/resources/dictionnaire.txt`, un mot par ligne, en minuscules,
-   sans accents). La **1re lettre est révélée**, **6 essais max**.
+   sans accents). La validation des propositions s'appuie en plus sur `mots-valides.txt`
+   (liste large des mots acceptés). La **1re lettre est révélée**, **6 essais max**.
 2. **Validation d'une proposition** avant tout calcul :
    - bonne longueur (= longueur du mot mystère) ;
    - mot présent dans le dictionnaire.
@@ -264,11 +268,13 @@ couches, même gestion d'erreurs, DTO en records, Dockerfile multi-stage, entré
 
 > ✅ **frontend — fait.** Page statique HTML + JS vanilla dans `frontend/` (`index.html`,
 > `styles.css`, `app.js`), sans build ni dépendance, qui appelle **uniquement** la gateway.
-> Parcours complet : choix/création du joueur → partie (longueur + 1re lettre) → propositions
-> avec grille colorée (`CORRECT`/`PRESENT`/`ABSENT`) et clavier AZERTY à états → fin de partie
-> (solution révélée) → historique et classement via `/api/scores`. Les essais sont conservés
-> côté client (liste de `GuessResponse`). Servir avec `python3 -m http.server 5500` depuis
-> `frontend/` (cf. `frontend/README.md`) ; gateway surchargeable par `?api=`.
+> Style inspiré de Wordle (plateau centré, tuiles vert/jaune/gris, clavier AZERTY à états,
+> modale de stats, police Libre Franklin). Parcours complet : choix/création du joueur →
+> partie (longueur + 1re lettre, indiquée par une lettre fantôme grise) → propositions avec
+> grille colorée (`CORRECT`/`PRESENT`/`ABSENT`) → fin de partie (solution révélée) → historique
+> et classement via `/api/scores`. Les essais sont conservés côté client (liste de `GuessResponse`).
+> Lancer avec `./serve.sh` (sert directement `frontend/` sur le port 5500, sans listing) ;
+> gateway surchargeable par `?api=`.
 
 ### 10.1 Déploiement k8s / MiniKube (`k8s/`)
 - Un `Deployment` + `Service` par composant (postgres, player, game, score, gateway).

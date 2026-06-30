@@ -1,38 +1,39 @@
-# frontend — page de démo
+# frontend
 
-Page statique (HTML + JS vanilla, sans build ni dépendance) qui appelle
-**uniquement la gateway** (`http://localhost:8080`). Aucun framework, trois fichiers :
+Page de démo en HTML et JavaScript, sans framework ni build. Le style est inspiré
+de Wordle (plateau centré, tuiles vert / jaune / gris, clavier AZERTY, modale de
+statistiques). Trois fichiers :
 
-- `index.html` — structure des écrans ;
-- `styles.css` — système de design (jetons de couleurs/espacements, thème éditorial) ;
-- `app.js` — logique : appels API, grille Motus, clavier, historique, classement.
+- `index.html` : structure des écrans ;
+- `styles.css` : mise en forme ;
+- `app.js` : appels à la gateway, grille, clavier, historique, classement.
 
-## Parcours
+La page appelle uniquement la gateway (`http://localhost:8080`).
 
-1. **Joueur** — saisie d'un nom (`POST /api/players`, ou réutilisation d'un joueur
-   existant via `GET /api/players`).
-2. **Partie** — `POST /api/games` ; on affiche la longueur du mot et la 1re lettre.
-3. **Propositions** — `POST /api/games/{id}/guess` ; la grille est colorée lettre par
-   lettre (vert = bien placée, orange = mal placée, gris = absente) et le clavier
-   reflète l'état de chaque lettre. Un mot hors dictionnaire / de mauvaise longueur
-   affiche un message et **ne consomme pas** d'essai.
-4. **Fin de partie** — la solution est révélée (statut `WON` / `LOST`).
-5. **Statistiques** — historique du joueur (`GET /api/scores?playerId=…`) et classement
-   (`GET /api/scores/leaderboard`).
+## Déroulé
 
-> Les essais d'une partie ne sont **pas** persistés côté serveur : le front conserve
-> localement la liste des `GuessResponse` pour redessiner la grille.
+1. Choix ou création d'un joueur (`/api/players`).
+2. Démarrage d'une partie (`/api/games`) : on affiche la longueur du mot et sa
+   première lettre (montrée en gris clair sur la ligne en cours).
+3. Propositions (`/api/games/{id}/guess`) : la grille se colore lettre par lettre
+   (vert bien placée, jaune mal placée, gris absente) et le clavier suit l'état des
+   lettres. Un mot inconnu ou de mauvaise longueur affiche un message et ne fait pas
+   perdre d'essai.
+4. Fin de partie : le mot est révélé.
+5. Bouton « Stats » : historique du joueur (`/api/scores?playerId=...`) et classement
+   (`/api/scores/leaderboard`).
+
+Les essais ne sont pas stockés côté serveur : la page garde la liste des réponses
+pour redessiner la grille.
 
 ## Lancer
 
-La page est statique : il suffit de la servir et d'ouvrir le navigateur (la gateway et
-les services doivent tourner, cf. `docker compose up --build` à la racine).
+Depuis la racine du projet :
 
 ```bash
-cd frontend
-python3 -m http.server 5500
-# puis ouvrir http://localhost:5500
+./serve.sh            # sert frontend/ sur http://localhost:5500
+./serve.sh 8090       # autre port si besoin
 ```
 
-Pour viser une gateway sur une autre adresse, ajouter `?api=` à l'URL :
-`http://localhost:5500/?api=http://mon-hote:8080`.
+La gateway et les services doivent tourner (`docker compose up --build`). Pour viser
+une autre gateway : `http://localhost:5500/?api=http://mon-hote:8080`.

@@ -62,14 +62,18 @@ Maven doit utiliser le JDK 21 (`JAVA_HOME=$(/usr/libexec/java_home -v 21) mvn ..
 .
 ├── player-service/   # microservice joueurs (patron de référence)
 ├── game-service/     # microservice jeu Motus (logique, dictionnaire, Feign)
-├── score-service/    # (à venir)
+├── score-service/    # microservice scores (historique, classement)
 ├── gateway/          # Spring Cloud Gateway
-├── frontend/         # page de démo (à venir)
+├── frontend/         # page de démo (HTML + JS, style Wordle)
 ├── k8s/              # manifests Kubernetes / MiniKube (à venir)
 ├── docs/             # documentation technique (architecture, diagrammes)
 ├── docker-compose.yml
+├── serve.sh          # sert la page de démo sur http://localhost:5500
 └── init-db.sql       # crée motus_players / motus_games / motus_scores
 ```
+
+Pour ouvrir la page de démo une fois les services lancés : `./serve.sh` puis
+`http://localhost:5500`.
 
 ## Auteurs
 
