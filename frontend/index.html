@@ -4,120 +4,71 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Le Mot Juste</title>
-  <meta name="description" content="Le Mot Juste — devinez le mot mystère en six essais.">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
   <div class="app">
-    <header class="masthead">
-      <div class="brand">
-        <span class="brand__kicker">Motus · microservices</span>
-        <h1 class="brand__name">Le Mot&nbsp;Juste</h1>
-      </div>
-      <div class="identity" id="identity" hidden>
-        <div class="identity__who">
-          <span class="identity__label">Joueur</span>
-          <span class="identity__name" id="identityName">—</span>
-        </div>
-        <button class="btn btn--ghost btn--sm" id="changePlayer" type="button">Changer</button>
-      </div>
+    <header class="header">
+      <button class="header__btn" id="changePlayer" type="button" hidden>Changer</button>
+      <h1 class="header__title">Le Mot Juste</h1>
+      <button class="header__btn" id="openStats" type="button" hidden>Stats</button>
     </header>
 
     <main class="main">
-      <!-- ÉCRAN 1 — choix / création du joueur -->
-      <section class="onboarding" id="onboarding">
-        <div class="onboarding__intro">
-          <h2 class="display">Quel est le mot juste&nbsp;?</h2>
-          <p class="lede">
-            Un mot mystère, sa longueur et sa première lettre. Six essais pour le
-            reconstituer. À chaque proposition, chaque lettre vous dit si elle est
-            bien placée, mal placée, ou absente.
-          </p>
-        </div>
-
-        <form class="signin card" id="signinForm" autocomplete="off">
-          <label class="field">
-            <span class="field__label">Votre nom de joueur</span>
-            <input class="field__input" id="usernameInput" name="username"
-                   type="text" placeholder="entre 3 et 20 caractères"
-                   minlength="3" maxlength="20" required>
-          </label>
-          <button class="btn btn--primary" type="submit" id="signinSubmit">
-            Entrer dans la partie
-          </button>
-
-          <div class="signin__known" id="knownPlayers" hidden>
-            <span class="signin__or">ou reprenez une session</span>
-            <div class="chips" id="playerChips"></div>
-          </div>
+      <!-- Écran 1 : nom du joueur -->
+      <section class="start" id="start">
+        <p class="start__intro">
+          Trouve le mot mystère en six essais. Au départ tu connais sa longueur et sa
+          première lettre. À chaque proposition, chaque lettre devient verte si elle est
+          bien placée, jaune si elle est mal placée, et grise si elle n'est pas dans le mot.
+        </p>
+        <form class="start__form" id="signinForm" autocomplete="off">
+          <input class="input" id="usernameInput" type="text"
+                 placeholder="Ton nom de joueur" minlength="3" maxlength="20" required>
+          <button class="btn" type="submit" id="signinSubmit">Jouer</button>
         </form>
+        <div class="start__known" id="knownPlayers" hidden>
+          <span class="start__known-label">Déjà joué ?</span>
+          <div class="chips" id="playerChips"></div>
+        </div>
       </section>
 
-      <!-- ÉCRAN 2 — partie + statistiques -->
+      <!-- Écran 2 : partie -->
       <section class="play" id="play" hidden>
-        <div class="board-col">
-          <div class="statusbar" id="statusbar">
-            <div class="statusbar__meta">
-              <span class="statusbar__len" id="wordLen">—</span>
-              <span class="statusbar__state" id="gameState" data-state="idle">Prêt</span>
-            </div>
-            <div class="pips" id="pips" aria-label="Essais restants"></div>
-          </div>
-
-          <div class="board" id="board" aria-label="Grille de jeu"></div>
-
-          <div class="result" id="result" hidden aria-live="polite"></div>
-
-          <div class="actions" id="actions">
-            <button class="btn btn--primary" id="startBtn" type="button">
-              Lancer une partie
-            </button>
-          </div>
-
-          <div class="keyboard" id="keyboard" aria-hidden="true"></div>
-          <p class="hint" id="hint">Tapez votre mot, validez avec Entrée.</p>
+        <p class="caption" id="caption"></p>
+        <div class="board" id="board"></div>
+        <p class="result" id="result" hidden aria-live="polite"></p>
+        <div class="actions" id="actions">
+          <button class="btn" id="startBtn" type="button">Commencer la partie</button>
         </div>
-
-        <aside class="sidebar">
-          <section class="panel" id="historyPanel">
-            <header class="panel__head">
-              <svg class="panel__icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 7v5l3 2M21 12a9 9 0 1 1-9-9" />
-              </svg>
-              <h3 class="panel__title">Vos parties</h3>
-            </header>
-            <ul class="history" id="historyList"></ul>
-            <p class="panel__empty" id="historyEmpty">Aucune partie terminée pour l'instant.</p>
-          </section>
-
-          <section class="panel" id="leaderboardPanel">
-            <header class="panel__head">
-              <svg class="panel__icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4ZM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3" />
-              </svg>
-              <h3 class="panel__title">Classement</h3>
-            </header>
-            <ol class="leaderboard" id="leaderboardList"></ol>
-            <p class="panel__empty" id="leaderboardEmpty">Le classement se remplit après les premières parties.</p>
-          </section>
-        </aside>
+        <div class="keyboard" id="keyboard" aria-hidden="true"></div>
       </section>
     </main>
+  </div>
 
-    <footer class="colophon">
-      <span>Le Mot Juste</span>
-      <span class="colophon__sep">·</span>
-      <span>Projet M2 — Applications Web orientées Services</span>
-    </footer>
+  <!-- Modale statistiques -->
+  <div class="modal" id="statsModal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__card" role="dialog" aria-modal="true" aria-label="Statistiques">
+      <button class="modal__close" data-close type="button" aria-label="Fermer">×</button>
+
+      <h2 class="modal__title">Mes parties</h2>
+      <ul class="history" id="historyList"></ul>
+      <p class="empty" id="historyEmpty">Aucune partie terminée pour le moment.</p>
+
+      <h2 class="modal__title">Classement</h2>
+      <ol class="leaderboard" id="leaderboardList"></ol>
+      <p class="empty" id="leaderboardEmpty">Le classement est encore vide.</p>
+    </div>
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="assertive" hidden></div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>

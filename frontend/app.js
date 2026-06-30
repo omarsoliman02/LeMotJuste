@@ -1,59 +1,54 @@
-/* =========================================================================
-   Le Mot Juste — logique du frontend (JS vanilla).
-   Le front n'appelle QUE la gateway (point d'entrée unique, port 8080).
-   Rien n'est persisté côté serveur pour les essais : on garde localement la
-   liste des GuessResponse pour redessiner la grille.
-   ========================================================================= */
+// Le Mot Juste : logique du frontend. On parle uniquement à la gateway (port 8080).
+// Les essais ne sont pas stockés côté serveur : on garde la liste des GuessResponse
+// en mémoire pour redessiner la grille.
 
-// Adresse de la gateway. Surchargeable via ?api=... pour une démo distante.
 const GATEWAY =
   new URLSearchParams(location.search).get("api") || "http://localhost:8080";
 
 const MAX_ATTEMPTS = 6;
 
-// Clavier AZERTY (mots normalisés côté serveur : majuscules, sans accents).
+// Clavier AZERTY. Les mots sont normalisés côté serveur (majuscules, sans accents).
 const KEY_ROWS = [
   ["A", "Z", "E", "R", "T", "Y", "U", "I", "O", "P"],
   ["Q", "S", "D", "F", "G", "H", "J", "K", "L", "M"],
-  ["ENTRER", "W", "X", "C", "V", "B", "N", "EFFACER"],
+  ["ENTREE", "W", "X", "C", "V", "B", "N", "RETOUR"],
 ];
 
-// Priorité des statuts pour colorer une touche (le meilleur l'emporte).
-const STATUS_RANK = { ABSENT: 0, PRESENT: 1, CORRECT: 2 };
+const BACKSPACE_SVG =
+  '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.12c.36.53.9.88 1.59.88h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-3 12.59L17.59 17 14 13.41 10.41 17 9 15.59 12.59 12 9 8.41 10.41 7 14 10.59 17.59 7 19 8.41 15.41 12z"/></svg>';
+
+// Pour colorer une touche, le meilleur statut gagne.
+const RANK = { ABSENT: 0, PRESENT: 1, CORRECT: 2 };
 
 const state = {
-  player: null,        // { id, username }
-  players: [],         // liste pour la correspondance id -> username
-  game: null,          // dernier GameResponse connu
-  guesses: [],         // GuessResponse[] de la partie courante
-  current: "",         // proposition en cours de saisie (majuscules)
-  keyStates: {},       // { A: "CORRECT", ... }
-  revealRow: null,     // index de ligne à animer après un essai
+  player: null,
+  players: [],
+  game: null,
+  guesses: [],
+  current: "",
+  keyStates: {},
+  revealRow: null,
   busy: false,
 };
 
-/* ------------------------------- DOM -------------------------------------- */
 const $ = (id) => document.getElementById(id);
 const el = {
-  onboarding: $("onboarding"),
-  play: $("play"),
-  identity: $("identity"),
-  identityName: $("identityName"),
   changePlayer: $("changePlayer"),
+  openStats: $("openStats"),
+  start: $("start"),
+  play: $("play"),
   signinForm: $("signinForm"),
   usernameInput: $("usernameInput"),
   signinSubmit: $("signinSubmit"),
   knownPlayers: $("knownPlayers"),
   playerChips: $("playerChips"),
-  wordLen: $("wordLen"),
-  gameState: $("gameState"),
-  pips: $("pips"),
+  caption: $("caption"),
   board: $("board"),
   result: $("result"),
   actions: $("actions"),
   startBtn: $("startBtn"),
   keyboard: $("keyboard"),
-  hint: $("hint"),
+  statsModal: $("statsModal"),
   historyList: $("historyList"),
   historyEmpty: $("historyEmpty"),
   leaderboardList: $("leaderboardList"),
@@ -61,7 +56,7 @@ const el = {
   toast: $("toast"),
 };
 
-/* ----------------------------- Appels API --------------------------------- */
+// --- Appels API ---
 class ApiError extends Error {
   constructor(status, message) {
     super(message);
@@ -77,18 +72,17 @@ async function api(path, options = {}) {
       ...options,
     });
   } catch {
-    throw new ApiError(0, "Service injoignable. La passerelle est-elle démarrée ?");
+    throw new ApiError(0, "Service injoignable. La passerelle est-elle lancée ?");
   }
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
   if (!res.ok) {
-    const message = (data && data.message) || "Une erreur est survenue.";
-    throw new ApiError(res.status, message);
+    throw new ApiError(res.status, (data && data.message) || "Une erreur est survenue.");
   }
   return data;
 }
 
-/* ----------------------------- Joueur ------------------------------------- */
+// --- Joueur ---
 async function loadPlayers() {
   try {
     state.players = await api("/api/players");
@@ -98,14 +92,10 @@ async function loadPlayers() {
 }
 
 function renderPlayerChips() {
-  const others = state.players.slice(-8).reverse();
-  if (others.length === 0) {
-    el.knownPlayers.hidden = true;
-    return;
-  }
-  el.knownPlayers.hidden = false;
+  const recent = state.players.slice(-8).reverse();
+  el.knownPlayers.hidden = recent.length === 0;
   el.playerChips.replaceChildren(
-    ...others.map((p) => {
+    ...recent.map((p) => {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "chip";
@@ -117,7 +107,6 @@ function renderPlayerChips() {
 }
 
 async function signIn(username) {
-  // Réutilise un joueur existant (insensible à la casse), sinon le crée.
   const existing = state.players.find(
     (p) => p.username.toLowerCase() === username.toLowerCase()
   );
@@ -130,14 +119,14 @@ async function signIn(username) {
 
 async function enterAs(player) {
   state.player = player;
-  el.identityName.textContent = player.username;
-  el.identity.hidden = false;
+  el.changePlayer.hidden = false;
+  el.openStats.hidden = false;
   resetGame();
-  showView("play");
+  showPlay();
   await refreshStats();
 }
 
-/* ------------------------------ Partie ------------------------------------ */
+// --- Partie ---
 async function startGame() {
   if (state.busy || !state.player) return;
   setBusy(true, el.startBtn);
@@ -149,16 +138,14 @@ async function startGame() {
     state.game = game;
     state.guesses = [];
     state.keyStates = {};
-    state.current = game.firstLetter ? game.firstLetter.toUpperCase() : "";
+    state.current = "";
     state.revealRow = null;
     el.result.hidden = true;
     el.actions.hidden = true;
     el.keyboard.setAttribute("aria-hidden", "false");
-    renderStatus();
-    renderBoard();
-    renderKeyboard();
+    render();
   } catch (e) {
-    toast(e.message, true);
+    toast(e.message);
   } finally {
     setBusy(false, el.startBtn);
   }
@@ -172,7 +159,7 @@ async function submitGuess() {
   if (state.busy || !isPlaying()) return;
   const word = state.current;
   if (word.length !== state.game.wordLength) {
-    toast(`Le mot doit comporter ${state.game.wordLength} lettres.`, true);
+    toast(`Il faut un mot de ${state.game.wordLength} lettres.`);
     shakeActiveRow();
     return;
   }
@@ -187,24 +174,13 @@ async function submitGuess() {
     state.game.attemptsLeft = guess.attemptsLeft;
     state.game.status = guess.status;
     updateKeyStates(guess.letters);
-
-    if (guess.status === "IN_PROGRESS") {
-      // Nouvel essai : on repré-remplit la première lettre révélée.
-      state.current = state.game.firstLetter.toUpperCase();
-    } else {
-      state.game.solution = guess.solution;
-    }
-
-    renderStatus();
-    renderBoard();
-    renderKeyboard();
-
-    if (guess.status !== "IN_PROGRESS") {
-      endGame();
-    }
+    state.current = "";
+    if (guess.status !== "IN_PROGRESS") state.game.solution = guess.solution;
+    render();
+    if (guess.status !== "IN_PROGRESS") endGame();
   } catch (e) {
-    // 400 = mauvaise longueur / hors dictionnaire : l'essai n'est pas décompté.
-    toast(e.message, true);
+    // 400 : mauvaise longueur ou mot inconnu, l'essai n'est pas décompté.
+    toast(e.message);
     if (e.status === 400) shakeActiveRow();
   } finally {
     setBusy(false);
@@ -216,16 +192,12 @@ function endGame() {
   const won = state.game.status === "WON";
   const used = MAX_ATTEMPTS - state.game.attemptsLeft;
   el.result.hidden = false;
-  el.result.className = "result " + (won ? "result--won" : "result--lost");
   el.result.innerHTML = won
-    ? `<p class="result__title">Le mot juste !</p>
-       <p class="result__sub">Trouvé en ${used} essai${used > 1 ? "s" : ""}.</p>`
-    : `<p class="result__title">Presque.</p>
-       <p class="result__sub">Le mot était <span class="result__word">${escapeHtml(
-         state.game.solution || ""
-       )}</span>.</p>`;
+    ? `Bien joué, trouvé en ${used} essai${used > 1 ? "s" : ""}.`
+    : `Raté. Le mot était <b>${escapeHtml(state.game.solution || "")}</b>.`;
+  toast(won ? "Bien joué" : `Le mot était ${state.game.solution}`);
   el.actions.hidden = false;
-  el.startBtn.textContent = "Nouvelle partie";
+  el.startBtn.textContent = "Rejouer";
   refreshStats();
 }
 
@@ -237,31 +209,29 @@ function resetGame() {
   state.revealRow = null;
   el.result.hidden = true;
   el.actions.hidden = false;
-  el.startBtn.textContent = "Lancer une partie";
+  el.startBtn.textContent = "Commencer la partie";
   el.keyboard.setAttribute("aria-hidden", "true");
-  renderStatus();
+  render();
+}
+
+// --- Rendu ---
+function render() {
+  renderCaption();
   renderBoard();
   renderKeyboard();
 }
 
-/* ------------------------------ Rendu ------------------------------------- */
-function renderStatus() {
-  const len = state.game ? state.game.wordLength : null;
-  el.wordLen.textContent = len ? `${len} lettres` : "—";
-
-  const map = { IN_PROGRESS: ["playing", "En cours"], WON: ["won", "Gagné"], LOST: ["lost", "Perdu"] };
-  const [data, label] = state.game ? map[state.game.status] : ["idle", "Prêt"];
-  el.gameState.dataset.state = data;
-  el.gameState.textContent = label;
-
-  const left = state.game ? state.game.attemptsLeft : MAX_ATTEMPTS;
-  el.pips.replaceChildren(
-    ...Array.from({ length: MAX_ATTEMPTS }, (_, i) => {
-      const p = document.createElement("span");
-      p.className = "pip" + (i >= left ? " pip--spent" : "");
-      return p;
-    })
-  );
+function renderCaption() {
+  if (!state.game) {
+    el.caption.textContent = state.player ? `Salut ${state.player.username}, prêt à jouer ?` : "";
+    return;
+  }
+  if (state.game.status === "IN_PROGRESS") {
+    el.caption.textContent =
+      `Mot de ${state.game.wordLength} lettres, première lettre ${state.game.firstLetter}.`;
+  } else {
+    el.caption.textContent = `${state.game.attemptsLeft} essai(s) restant(s) sur cette partie.`;
+  }
 }
 
 function renderBoard() {
@@ -269,25 +239,21 @@ function renderBoard() {
   el.board.replaceChildren(
     ...Array.from({ length: MAX_ATTEMPTS }, (_, r) => buildRow(r, cols))
   );
-  // Anime la ligne tout juste validée, puis lève le drapeau.
   if (state.revealRow !== null) {
-    const toClear = state.revealRow;
-    setTimeout(() => {
-      if (state.revealRow === toClear) {
-        state.revealRow = null;
-      }
-    }, 700);
+    const done = state.revealRow;
+    setTimeout(() => { if (state.revealRow === done) state.revealRow = null; }, 700);
   }
 }
 
 function buildRow(rowIndex, cols) {
   const row = document.createElement("div");
   row.className = "row";
-  row.style.setProperty("grid-template-columns", `repeat(${cols}, auto)`);
+  row.style.gridTemplateColumns = `repeat(${cols}, auto)`;
 
   const guess = state.guesses[rowIndex];
-  const isActive = !guess && isPlaying() && rowIndex === state.guesses.length;
+  const active = !guess && isPlaying() && rowIndex === state.guesses.length;
   const reveal = rowIndex === state.revealRow;
+  const ghost = state.game ? state.game.firstLetter : "";
 
   for (let c = 0; c < cols; c++) {
     const tile = document.createElement("div");
@@ -299,15 +265,15 @@ function buildRow(rowIndex, cols) {
       tile.classList.add("tile--" + lr.status.toLowerCase());
       if (reveal) {
         tile.classList.add("tile--reveal");
-        tile.style.animationDelay = `${c * 0.22}s`;
+        tile.style.animationDelay = `${c * 0.18}s`;
       }
-    } else if (isActive) {
-      const ch = state.current[c];
-      if (ch) {
-        tile.textContent = ch;
-        tile.classList.add("tile--filled");
-        if (c === state.current.length - 1) tile.classList.add("tile--pop");
-      }
+    } else if (active && c < state.current.length) {
+      tile.textContent = state.current[c];
+      tile.classList.add("tile--filled");
+    } else if (active && c === 0) {
+      // Indice sur la ligne en cours : la première lettre révélée, en gris clair.
+      tile.textContent = ghost;
+      tile.classList.add("tile--ghost");
     }
     row.appendChild(tile);
   }
@@ -315,16 +281,14 @@ function buildRow(rowIndex, cols) {
 }
 
 function shakeActiveRow() {
-  const rows = el.board.children;
-  const idx = state.guesses.length;
-  const row = rows[idx];
+  const row = el.board.children[state.guesses.length];
   if (!row) return;
   row.classList.remove("row--invalid");
-  void row.offsetWidth; // relance l'animation
+  void row.offsetWidth;
   row.classList.add("row--invalid");
 }
 
-/* ------------------------------ Clavier ----------------------------------- */
+// --- Clavier ---
 function renderKeyboard() {
   el.keyboard.replaceChildren(
     ...KEY_ROWS.map((keys) => {
@@ -339,13 +303,15 @@ function renderKeyboard() {
 function buildKey(k) {
   const key = document.createElement("button");
   key.type = "button";
-  const wide = k === "ENTRER" || k === "EFFACER";
+  const wide = k === "ENTREE" || k === "RETOUR";
   key.className = "key" + (wide ? " key--wide" : "");
-  key.textContent = k === "EFFACER" ? "Effacer" : k === "ENTRER" ? "Entrer" : k;
+  if (k === "RETOUR") key.innerHTML = BACKSPACE_SVG;
+  else if (k === "ENTREE") key.textContent = "Entrée";
+  else key.textContent = k;
   if (!wide && state.keyStates[k]) key.classList.add("key--" + state.keyStates[k].toLowerCase());
   key.addEventListener("click", () => {
-    if (k === "ENTRER") submitGuess();
-    else if (k === "EFFACER") pressBackspace();
+    if (k === "ENTREE") submitGuess();
+    else if (k === "RETOUR") pressBackspace();
     else pressLetter(k);
   });
   return key;
@@ -354,13 +320,10 @@ function buildKey(k) {
 function updateKeyStates(letters) {
   for (const { letter, status } of letters) {
     const prev = state.keyStates[letter];
-    if (prev === undefined || STATUS_RANK[status] > STATUS_RANK[prev]) {
-      state.keyStates[letter] = status;
-    }
+    if (prev === undefined || RANK[status] > RANK[prev]) state.keyStates[letter] = status;
   }
 }
 
-/* ----------------------------- Saisie ------------------------------------- */
 function pressLetter(ch) {
   if (!isPlaying() || state.busy) return;
   if (state.current.length >= state.game.wordLength) return;
@@ -375,13 +338,13 @@ function pressBackspace() {
 }
 
 function onKeydown(e) {
-  if (el.play.hidden || !isPlaying()) return;
+  if (el.play.hidden || !isPlaying() || !el.statsModal.hidden) return;
   if (e.key === "Enter") { e.preventDefault(); submitGuess(); }
   else if (e.key === "Backspace") { e.preventDefault(); pressBackspace(); }
-  else if (/^[a-zA-Z]$/.test(e.key)) { pressLetter(e.key); }
+  else if (/^[a-zA-Z]$/.test(e.key)) pressLetter(e.key);
 }
 
-/* --------------------------- Statistiques --------------------------------- */
+// --- Statistiques ---
 async function refreshStats() {
   if (!state.player) return;
   await Promise.all([loadHistory(), loadLeaderboard()]);
@@ -391,21 +354,20 @@ async function loadHistory() {
   let scores = [];
   try {
     scores = await api(`/api/scores?playerId=${state.player.id}`);
-  } catch {
-    scores = [];
-  }
+  } catch { scores = []; }
   el.historyEmpty.hidden = scores.length > 0;
   el.historyList.replaceChildren(
     ...scores.map((s) => {
       const li = document.createElement("li");
       li.className = "history__item";
       const left = document.createElement("div");
-      left.innerHTML = `<div class="history__word">${escapeHtml(s.word)}</div>
-        <div class="history__meta">${s.attempts} essai${s.attempts > 1 ? "s" : ""} · ${formatDate(s.playedAt)}</div>`;
-      const badge = document.createElement("span");
-      badge.className = "badge " + (s.won ? "badge--won" : "badge--lost");
-      badge.textContent = s.won ? "Gagné" : "Perdu";
-      li.append(left, badge);
+      left.innerHTML =
+        `<div class="history__word">${escapeHtml(s.word)}</div>
+         <div class="history__meta">${s.attempts} essai${s.attempts > 1 ? "s" : ""}, ${formatDate(s.playedAt)}</div>`;
+      const tag = document.createElement("span");
+      tag.className = "tag " + (s.won ? "tag--won" : "tag--lost");
+      tag.textContent = s.won ? "Gagné" : "Perdu";
+      li.append(left, tag);
       return li;
     })
   );
@@ -415,33 +377,39 @@ async function loadLeaderboard() {
   let board = [];
   try {
     board = await api("/api/scores/leaderboard");
-  } catch {
-    board = [];
-  }
-  // S'assure d'avoir les noms à jour pour la correspondance id -> username.
+  } catch { board = []; }
   if (board.length && state.players.length === 0) await loadPlayers();
   const names = new Map(state.players.map((p) => [p.id, p.username]));
-
   el.leaderboardEmpty.hidden = board.length > 0;
   el.leaderboardList.replaceChildren(
     ...board.map((entry, i) => {
       const li = document.createElement("li");
-      li.className = "lb__row" + (state.player && entry.playerId === state.player.id ? " lb__row--me" : "");
-      const name = names.get(entry.playerId) || `Joueur #${entry.playerId}`;
-      const title = `${entry.wins} victoire${entry.wins > 1 ? "s" : ""} · ${entry.gamesPlayed} partie${entry.gamesPlayed > 1 ? "s" : ""}`;
-      li.innerHTML = `
-        <span class="lb__rank">${i + 1}</span>
-        <span class="lb__name">${escapeHtml(name)}</span>
-        <span class="lb__score" title="${title}"><b>${entry.wins}</b> v · ${entry.gamesPlayed} j</span>`;
+      const me = state.player && entry.playerId === state.player.id;
+      li.className = "lb__row" + (me ? " lb__row--me" : "");
+      const name = names.get(entry.playerId) || `Joueur ${entry.playerId}`;
+      li.innerHTML =
+        `<span class="lb__rank">${i + 1}</span>
+         <span class="lb__name">${escapeHtml(name)}</span>
+         <span class="lb__score">${entry.wins} gagnées sur ${entry.gamesPlayed}</span>`;
       return li;
     })
   );
 }
 
-/* ------------------------------ Outils ------------------------------------ */
-function showView(view) {
-  el.onboarding.hidden = view !== "onboarding";
-  el.play.hidden = view !== "play";
+function openStats() {
+  refreshStats();
+  el.statsModal.hidden = false;
+}
+function closeStats() { el.statsModal.hidden = true; }
+
+// --- Utilitaires ---
+function showPlay() {
+  el.start.hidden = true;
+  el.play.hidden = false;
+}
+function showStart() {
+  el.play.hidden = true;
+  el.start.hidden = false;
 }
 
 function setBusy(busy, button) {
@@ -450,41 +418,36 @@ function setBusy(busy, button) {
 }
 
 let toastTimer;
-function toast(message, isError = false) {
+function toast(message) {
   el.toast.textContent = message;
-  el.toast.className = "toast" + (isError ? " toast--error" : "");
   el.toast.hidden = false;
-  // Relance l'animation d'entrée.
   el.toast.style.animation = "none";
   void el.toast.offsetWidth;
   el.toast.style.animation = "";
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.toast.hidden = true; }, 2600);
+  toastTimer = setTimeout(() => { el.toast.hidden = true; }, 2200);
 }
 
 function formatDate(iso) {
   try {
     return new Date(iso).toLocaleDateString("fr-FR", {
-      day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
+      day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
     });
-  } catch {
-    return "";
-  }
+  } catch { return ""; }
 }
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
-  );
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
-/* ------------------------------ Init -------------------------------------- */
+// --- Démarrage ---
 function init() {
   el.signinForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const username = el.usernameInput.value.trim();
     if (username.length < 3) {
-      toast("Le nom doit comporter au moins 3 caractères.", true);
+      toast("Choisis un nom d'au moins 3 lettres.");
       return;
     }
     setBusy(true, el.signinSubmit);
@@ -492,7 +455,7 @@ function init() {
       const player = await signIn(username);
       await enterAs(player);
     } catch (e2) {
-      toast(e2.message, true);
+      toast(e2.message);
     } finally {
       setBusy(false, el.signinSubmit);
     }
@@ -501,10 +464,16 @@ function init() {
   el.changePlayer.addEventListener("click", () => {
     state.player = null;
     state.game = null;
-    el.identity.hidden = true;
+    el.changePlayer.hidden = true;
+    el.openStats.hidden = true;
     el.usernameInput.value = "";
     loadPlayers().then(renderPlayerChips);
-    showView("onboarding");
+    showStart();
+  });
+
+  el.openStats.addEventListener("click", openStats);
+  el.statsModal.addEventListener("click", (e) => {
+    if (e.target.hasAttribute("data-close")) closeStats();
   });
 
   el.startBtn.addEventListener("click", startGame);
