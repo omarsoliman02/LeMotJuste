@@ -1,0 +1,21 @@
+# Optionnel : expose la gateway via un Ingress (nécessite l'addon ingress de MiniKube :
+#   minikube addons enable ingress
+# puis ajouter dans /etc/hosts :  <minikube ip>  lemotjuste.local
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gateway
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: lemotjuste.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway
+                port:
+                  number: 8080
