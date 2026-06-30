@@ -143,15 +143,17 @@ Notes d'implémentation :
   `dictionnaire.txt` = mots-mystères courants (tirage de la solution) ; `mots-valides.txt` = liste
   large des mots acceptés à la validation d'une proposition. Une proposition est valable si elle
   figure dans l'une des deux.
-- **Données lexicales réelles** (régénérables) : `mots-valides.txt` = tout le dictionnaire FR
-  Hunspell/Dicollecte (~182 000 mots de 4 à 10 lettres) ; `dictionnaire.txt` = ~5 000 mots
+- **Données lexicales réelles** (régénérables) : `mots-valides.txt` = dictionnaire FR
+  Hunspell/Dicollecte **∪ Officiel du Scrabble (ODS8)** (~237 000 mots de 4 à 10 lettres ;
+  l'ODS apporte l'argot et les formes rares, ex. « balaise ») ; `dictionnaire.txt` = ~5 000 mots
   **fréquents** (OpenSubtitles) qui sont aussi de vrais mots → solutions courantes et justes.
   Pour régénérer après avoir changé les sources ou les longueurs :
   ```bash
   ./scripts/build-dictionaries.sh        # télécharge les sources, normalise, écrit les 2 fichiers
   ```
   Le script normalise (minuscules, sans accents, `œ→oe`/`æ→ae`, lettres a-z, longueur 4-10) et
-  dédoublonne. Sources : `words/an-array-of-french-words` (Hunspell) et `hermitdave/FrequencyWords`.
+  dédoublonne. Sources : `words/an-array-of-french-words` (Hunspell),
+  `Thecoolsim/French-Scrabble-ODS8` (ODS8) et `hermitdave/FrequencyWords` (fréquences).
 
 ### 5.3 score-service (8083) — IMPLÉMENTÉ
 
