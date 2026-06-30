@@ -1,0 +1,10 @@
+# Script d'init Postgres : crée les 3 bases (équivalent de init-db.sql en Docker Compose).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+data:
+  init-db.sql: |
+    CREATE DATABASE motus_players;
+    CREATE DATABASE motus_games;
+    CREATE DATABASE motus_scores;

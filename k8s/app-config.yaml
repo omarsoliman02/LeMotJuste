@@ -1,0 +1,12 @@
+# URLs inter-services (DNS interne du cluster = nom du Service).
+# game-service utilise les *_URL (Feign) ; gateway utilise les *_URI (routage).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  PLAYER_SERVICE_URL: http://player-service:8081
+  SCORE_SERVICE_URL: http://score-service:8083
+  PLAYER_SERVICE_URI: http://player-service:8081
+  GAME_SERVICE_URI: http://game-service:8082
+  SCORE_SERVICE_URI: http://score-service:8083
