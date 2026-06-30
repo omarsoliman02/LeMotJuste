@@ -242,7 +242,7 @@ Ports : gateway **8080**, player **8081**, game **8082**, score **8083**, Postgr
 - [x] **gateway** (routage)
 - [x] **game-service** (logique Motus, Feign → player + score, dictionnaire)
 - [x] **score-service** (historique / stats / classement)
-- [ ] frontend (page de démo)
+- [x] **frontend** (page de démo)
 - [ ] manifests k8s / MiniKube
 - [ ] rapport PDF (5 pages)
 
@@ -262,21 +262,20 @@ couches, même gestion d'erreurs, DTO en records, Dockerfile multi-stage, entré
 > « Score non enregistré » de game-service **disparaît** et que le score remonte via
 > `GET /api/scores?playerId=...`.
 
-### 10.1 frontend (page de démo)
-- HTML + JS vanilla dans `frontend/`, appels **uniquement** vers la gateway `http://localhost:8080`
-  (le CORS est déjà ouvert côté gateway).
-- Écrans : choix/création du joueur → démarrage de partie (afficher longueur + 1re lettre) →
-  saisie des propositions et rendu de la grille (couleurs selon `CORRECT`/`PRESENT`/`ABSENT`) →
-  fin de partie (afficher `solution`) → historique/classement via `/api/scores`.
-- L'historique des essais d'une partie n'est **pas** persité côté serveur : le front conserve
-  la liste des `GuessResponse` localement pour redessiner la grille.
+> ✅ **frontend — fait.** Page statique HTML + JS vanilla dans `frontend/` (`index.html`,
+> `styles.css`, `app.js`), sans build ni dépendance, qui appelle **uniquement** la gateway.
+> Parcours complet : choix/création du joueur → partie (longueur + 1re lettre) → propositions
+> avec grille colorée (`CORRECT`/`PRESENT`/`ABSENT`) et clavier AZERTY à états → fin de partie
+> (solution révélée) → historique et classement via `/api/scores`. Les essais sont conservés
+> côté client (liste de `GuessResponse`). Servir avec `python3 -m http.server 5500` depuis
+> `frontend/` (cf. `frontend/README.md`) ; gateway surchargeable par `?api=`.
 
-### 10.2 Déploiement k8s / MiniKube (`k8s/`)
+### 10.1 Déploiement k8s / MiniKube (`k8s/`)
 - Un `Deployment` + `Service` par composant (postgres, player, game, score, gateway).
 - `Secret` pour les identifiants Postgres, `ConfigMap`/env pour les URLs (Feign + datasource).
 - Optionnel : `Ingress` exposant la gateway. Charger les images dans MiniKube (`minikube image load`).
 
-### 10.3 Rapport PDF (5 pages max) — à rendre avant le **4 juillet 2026**
+### 10.2 Rapport PDF (5 pages max) — à rendre avant le **4 juillet 2026**
 Rubriques attendues : noms du binôme · compilation/exécution (renvoyer au README) ·
 documentation technique (schéma d'archi + diagramme de classes de `docs/architecture.md`,
 choix techniques) · bilan (ce qu'on a aimé/appris, difficultés). Envoi à mouloud.menceur@gmail.com.
