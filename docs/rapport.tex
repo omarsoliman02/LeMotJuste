@@ -65,7 +65,7 @@
   {\normalsize Master 2 MIAGE SITN — Applications Web orientées Services}\\[2pt]
   {\normalsize Enseignant : M. Mouloud Menceur}\\[8pt]
   % --- À COMPLÉTER : noms du binôme ---
-  {\large\bfseries Binôme : Prénom NOM \quad\textbullet\quad Omar [Nom]}\\[4pt]
+  {\large\bfseries Binôme : Omar Soliman \quad\textbullet\quad Abderrahmane Tsouli}\\[4pt]
   {\small Dépôt GitHub : \url{https://github.com/<compte>/<repo>}}\\[2pt]
   {\small Juin 2026}
 \end{center}
@@ -267,14 +267,31 @@ La page de démonstration est une application statique (HTML et JavaScript, sans
 framework ni build) dont l'interface s'inspire de \textit{Wordle}. Elle ne communique
 qu'avec la gateway.
 
-Le joueur saisit ou choisit un nom, puis démarre une partie : la longueur du mot et sa
-première lettre sont affichées, cette dernière apparaissant en gris clair sur la ligne
-en cours pour servir d'indice. À chaque proposition, la grille se colore lettre par
-lettre (vert : bien placée ; jaune : mal placée ; gris : absente) et un clavier AZERTY
-reflète l'état connu de chaque lettre. En fin de partie, le mot est révélé ; une fenêtre
-de statistiques présente l'historique du joueur et le classement (\texttt{/api/scores}).
-Les essais ne sont pas persistés côté serveur : la page conserve les réponses reçues
-pour redessiner la grille.
+La page d'accueil (avant de choisir son pseudo) a été enrichie d'éléments visuels non
+textuels : une rangée de tuiles colorées façon Wordle en guise de bandeau, et trois
+pictogrammes illustrant en un coup d'œil les règles (indice de départ, six essais,
+code couleur). Un bouton \textbf{Règles} dans l'en-tête ouvre à tout moment une fenêtre
+récapitulant les règles du jeu, sans quitter l'écran en cours.
+
+Le joueur saisit ou choisit un nom, puis \textbf{choisit la taille de la grille}
+(4 à 10 lettres, ou « Auto » pour un tirage aléatoire comme avant) avant de démarrer
+une partie : ce choix est transmis à \texttt{POST /api/games} via le champ optionnel
+\texttt{wordLength}, validé côté game-service par rapport aux bornes du dictionnaire.
+La longueur du mot et sa première lettre sont affichées, cette dernière apparaissant en
+gris clair sur la ligne en cours pour servir d'indice. À chaque proposition, la grille
+se colore lettre par lettre (vert : bien placée ; jaune : mal placée ; gris : absente)
+et un clavier AZERTY reflète l'état connu de chaque lettre. En fin de partie, le mot est
+révélé ; une fenêtre de statistiques présente l'historique du joueur et le classement
+(\texttt{/api/scores}). Les essais ne sont pas persistés côté serveur : la page
+conserve les réponses reçues pour redessiner la grille.
+
+Une \textbf{vue admin}, accessible depuis l'en-tête, agrège en lecture seule les
+données des trois services (\texttt{GET /api/players}, le nouvel endpoint
+\texttt{GET /api/games} qui liste toutes les parties tous joueurs confondus, et
+\texttt{GET /api/scores}) : cartes de synthèse (nombre de joueurs, de parties, de
+parties en cours, taux de victoire global) et tableaux détaillés. Aucune
+authentification n'a été ajoutée (hors périmètre du projet, cf. §8) : la vue est
+accessible à quiconque connaît l'URL du frontend, comme le reste de l'application.
 
 % --- Emplacement pour une capture du frontend ---
 % \begin{figure}[h]\centering
@@ -301,9 +318,12 @@ curl -X POST localhost:8080/api/games/1/guess -H 'Content-Type: application/json
 \end{verbatim}
 \normalsize
 La page de démo se lance ensuite avec \texttt{./serve.sh}, puis en ouvrant
-\url{http://localhost:5500}. Un déploiement local sur \textbf{MiniKube} est également
-prévu (un \texttt{Deployment} et un \texttt{Service} par composant, \texttt{Secret} pour
-les identifiants PostgreSQL, variables d'environnement pour les URLs).
+\url{http://localhost:5500}. Un déploiement sur \textbf{MiniKube} est également
+disponible (\texttt{kubectl apply -k k8s/} : un \texttt{Deployment} et un
+\texttt{Service} par composant, \texttt{Secret} pour les identifiants PostgreSQL,
+\texttt{ConfigMap} pour les URLs inter-services, gateway exposée en
+\texttt{NodePort}). Le guide détaillé, avec schémas d'architecture et script de démo,
+est dans \texttt{docs/kubernetes-guide.md}.
 
 % =====================================================================
 \section{Bilan}
