@@ -86,6 +86,10 @@ const el = {
   refreshAdmin: $("refreshAdmin"),
   adminCards: $("adminCards"),
   adminLeaderboard: $("adminLeaderboard"),
+  adminFilterPlayer: $("adminFilterPlayer"),
+  adminFilterFrom: $("adminFilterFrom"),
+  adminFilterTo: $("adminFilterTo"),
+  adminFilterReset: $("adminFilterReset"),
   adminGames: $("adminGames"),
   adminScores: $("adminScores"),
   toast: $("toast"),
@@ -531,6 +535,8 @@ function resultTag(won) {
   return { html: `<span class="tag ${won ? "tag--won" : "tag--lost"}">${won ? "Gagné" : "Perdu"}</span>` };
 }
 
+const adminData = { players: [], games: [], scores: [], nameOf: (id) => `Joueur ${id}` };
+
 async function loadAdminData() {
   const [players, games, scores, leaderboard] = await Promise.all([
     api("/api/players").catch(() => []),
@@ -539,24 +545,48 @@ async function loadAdminData() {
     api("/api/scores/leaderboard").catch(() => []),
   ]);
   const names = new Map(players.map((p) => [p.id, p.username]));
-  const nameOf = (id) => names.get(id) || `Joueur ${id}`;
+  adminData.players = players;
+  adminData.games = games;
+  adminData.scores = scores;
+  adminData.nameOf = (id) => names.get(id) || `Joueur ${id}`;
 
   renderAdminCards(players, games, scores);
 
   renderAdminTable(el.adminLeaderboard, ["Rang", "Joueur", "Victoires", "Parties jouées", "Taux de victoire"],
     leaderboard.map((entry, i) => [
       i + 1,
-      nameOf(entry.playerId),
+      adminData.nameOf(entry.playerId),
       entry.wins,
       entry.gamesPlayed,
       entry.gamesPlayed ? Math.round((entry.wins / entry.gamesPlayed) * 100) + " %" : "—",
     ]));
 
-  renderAdminTable(el.adminGames, ["Joueur", "Taille de grille", "Statut"],
-    games.map((g) => [nameOf(g.playerId), g.wordLength, statusTag(g.status)]));
+  renderFilteredAdminTables();
+}
+
+/** Filtre les tableaux Parties/Scores par nom de joueur et par période, entièrement côté client
+ *  (toutes les données sont déjà chargées) — répond à l'exigence « rechercher les parties et les
+ *  résultats sur des critères tels que la date, le joueur ». */
+function renderFilteredAdminTables() {
+  const query = el.adminFilterPlayer.value.trim().toLowerCase();
+  const from = el.adminFilterFrom.value ? new Date(el.adminFilterFrom.value) : null;
+  const to = el.adminFilterTo.value ? new Date(el.adminFilterTo.value + "T23:59:59") : null;
+
+  const matchesPlayer = (playerId) => !query || adminData.nameOf(playerId).toLowerCase().includes(query);
+  const matchesDate = (iso) => {
+    if (!from && !to) return true;
+    const date = new Date(iso);
+    return (!from || date >= from) && (!to || date <= to);
+  };
+
+  const games = adminData.games.filter((g) => matchesPlayer(g.playerId) && matchesDate(g.createdAt));
+  const scores = adminData.scores.filter((s) => matchesPlayer(s.playerId) && matchesDate(s.playedAt));
+
+  renderAdminTable(el.adminGames, ["Joueur", "Taille de grille", "Statut", "Créée le"],
+    games.map((g) => [adminData.nameOf(g.playerId), g.wordLength, statusTag(g.status), formatDate(g.createdAt)]));
 
   renderAdminTable(el.adminScores, ["Joueur", "Résultat", "Essais", "Mot", "Joué le"],
-    scores.map((s) => [nameOf(s.playerId), resultTag(s.won), s.attempts, s.word, formatDate(s.playedAt)]));
+    scores.map((s) => [adminData.nameOf(s.playerId), resultTag(s.won), s.attempts, s.word, formatDate(s.playedAt)]));
 }
 
 // Icônes ligne (même style que les pictogrammes de l'accueil) plutôt que des emojis.
@@ -689,6 +719,15 @@ function init() {
   });
   el.closeAdmin.addEventListener("click", closeAdminView);
   el.refreshAdmin.addEventListener("click", loadAdminData);
+  el.adminFilterPlayer.addEventListener("input", renderFilteredAdminTables);
+  el.adminFilterFrom.addEventListener("change", renderFilteredAdminTables);
+  el.adminFilterTo.addEventListener("change", renderFilteredAdminTables);
+  el.adminFilterReset.addEventListener("click", () => {
+    el.adminFilterPlayer.value = "";
+    el.adminFilterFrom.value = "";
+    el.adminFilterTo.value = "";
+    renderFilteredAdminTables();
+  });
 
   el.startBtn.addEventListener("click", startGame);
   el.cancelGameBtn.addEventListener("click", cancelGame);

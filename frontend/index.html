@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=13">
+  <link rel="stylesheet" href="styles.css?v=14">
 </head>
 <body>
   <div class="app">
@@ -116,6 +116,19 @@
         <h3 class="admin__section-title">Classement des joueurs</h3>
         <div class="admin__table-wrap"><table class="admin__table" id="adminLeaderboard"></table></div>
 
+        <div class="admin__filters">
+          <input class="input admin__filter-input" id="adminFilterPlayer" type="text"
+                 placeholder="Filtrer par joueur">
+          <label class="admin__filter-date">Du
+            <input type="date" id="adminFilterFrom">
+          </label>
+          <label class="admin__filter-date">Au
+            <input type="date" id="adminFilterTo">
+          </label>
+          <button class="link-btn" id="adminFilterReset" type="button">Réinitialiser</button>
+        </div>
+        <p class="admin__filter-hint">Filtre les tableaux « Parties » et « Scores » ci-dessous, par nom de joueur et/ou par période.</p>
+
         <h3 class="admin__section-title">Parties</h3>
         <div class="admin__table-wrap"><table class="admin__table" id="adminGames"></table></div>
 
@@ -167,6 +180,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="assertive" hidden></div>
 
-  <script src="app.js?v=13"></script>
+  <script src="app.js?v=14"></script>
 </body>
 </html>

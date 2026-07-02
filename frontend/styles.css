@@ -526,6 +526,30 @@ body {
   padding-bottom: 6px;
   border-bottom: 2px solid var(--line);
 }
+.admin__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 6px;
+}
+.admin__filter-input { width: auto; flex: 1 1 180px; padding: 8px 12px; font-size: .9rem; }
+.admin__filter-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .8rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+.admin__filter-date input[type="date"] {
+  font-family: inherit;
+  font-size: .85rem;
+  padding: 6px 8px;
+  border: 2px solid var(--tile-border);
+  border-radius: 6px;
+}
+.admin__filter-hint { margin: 0 0 16px; font-size: .78rem; color: var(--muted); }
 .admin__cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
