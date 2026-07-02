@@ -9,24 +9,52 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=2">
+  <link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body>
   <div class="app">
     <header class="header">
-      <button class="header__btn" id="changePlayer" type="button" hidden>Changer</button>
+      <div class="header__side header__side--left">
+        <button class="header__btn header__btn--admin" id="openAdmin" type="button"
+                title="Espace admin">Admin</button>
+      </div>
       <h1 class="header__title">Le Mot Juste</h1>
-      <button class="header__btn" id="openStats" type="button" hidden>Stats</button>
+      <div class="header__side header__side--right">
+        <button class="header__btn" id="changePlayer" type="button" hidden>Changer</button>
+        <button class="header__btn" id="openStats" type="button" hidden>Stats</button>
+        <button class="header__btn header__btn--icon" id="openRules" type="button"
+                title="Règles du jeu" aria-label="Règles du jeu">?</button>
+      </div>
     </header>
 
     <main class="main">
       <!-- Écran 1 : nom du joueur -->
       <section class="start" id="start">
-        <p class="start__intro">
-          Trouve le mot mystère en six essais. Au départ tu connais sa longueur et sa
-          première lettre. À chaque proposition, chaque lettre devient verte si elle est
-          bien placée, jaune si elle est mal placée, et grise si elle n'est pas dans le mot.
-        </p>
+        <div class="hero" aria-hidden="true">
+          <div class="hero__row">
+            <div class="hero__tile hero__tile--correct">M</div>
+            <div class="hero__tile hero__tile--present">O</div>
+            <div class="hero__tile hero__tile--absent">T</div>
+            <div class="hero__tile hero__tile--correct">U</div>
+            <div class="hero__tile hero__tile--present">S</div>
+          </div>
+        </div>
+
+        <div class="howto">
+          <div class="howto__step">
+            <svg class="howto__icon" viewBox="0 0 24 24" fill="none"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg>
+            <p>Longueur et 1<sup>re</sup> lettre révélées</p>
+          </div>
+          <div class="howto__step">
+            <svg class="howto__icon" viewBox="0 0 24 24" fill="none"><rect x="2" y="7" width="20" height="12" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M6 11h.01M10 11h.01M14 11h.01M18 11h.01M8 15h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <p>6 essais pour proposer un mot</p>
+          </div>
+          <div class="howto__step">
+            <svg class="howto__icon" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" fill="#6aaa64"/><rect x="14" y="3" width="7" height="7" rx="1.5" fill="#c9b458"/><rect x="8.5" y="14" width="7" height="7" rx="1.5" fill="#787c7e"/></svg>
+            <p>Vert, jaune, gris te guident</p>
+          </div>
+        </div>
+
         <form class="start__form" id="signinForm" autocomplete="off">
           <input class="input" id="usernameInput" type="text"
                  placeholder="Ton nom de joueur" minlength="3" maxlength="20" required>
@@ -43,10 +71,56 @@
         <p class="caption" id="caption"></p>
         <div class="board" id="board"></div>
         <p class="result" id="result" hidden aria-live="polite"></p>
+        <div class="size-select" id="sizeSelect">
+          <span class="size-select__label">Taille de la grille</span>
+          <div class="size-select__options" id="sizeOptions"></div>
+        </div>
         <div class="actions" id="actions">
           <button class="btn" id="startBtn" type="button">Commencer la partie</button>
         </div>
+        <button class="link-btn" id="cancelGameBtn" type="button" hidden>
+          Annuler et changer la taille de la grille
+        </button>
         <div class="keyboard" id="keyboard" aria-hidden="true"></div>
+      </section>
+
+      <!-- Écran 3 : connexion admin -->
+      <section class="admin-login" id="adminLogin" hidden>
+        <div class="admin-login__card">
+          <div class="admin-login__badge" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="10" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+          <h2 class="admin-login__title">Espace admin</h2>
+          <p class="admin-login__subtitle">Réservé à l'équipe organisatrice.</p>
+          <form id="adminLoginForm" autocomplete="off">
+            <input class="input" id="adminPasswordInput" type="password"
+                   placeholder="Mot de passe" required>
+            <p class="admin-login__error" id="adminLoginError" hidden>Mot de passe incorrect.</p>
+            <button class="btn" type="submit">Entrer</button>
+          </form>
+          <button class="admin-login__back" id="adminLoginCancel" type="button">Retour au jeu</button>
+        </div>
+      </section>
+
+      <!-- Écran 4 : vue admin -->
+      <section class="admin" id="adminView" hidden>
+        <div class="admin__toolbar">
+          <button class="header__btn header__btn--icon" id="closeAdmin" type="button"
+                  title="Retour au jeu" aria-label="Retour au jeu">←</button>
+          <h2 class="admin__title">Tableau de bord admin</h2>
+          <button class="header__btn" id="refreshAdmin" type="button">Rafraîchir</button>
+        </div>
+
+        <div class="admin__cards" id="adminCards"></div>
+
+        <h3 class="admin__section-title">Classement des joueurs</h3>
+        <div class="admin__table-wrap"><table class="admin__table" id="adminLeaderboard"></table></div>
+
+        <h3 class="admin__section-title">Parties</h3>
+        <div class="admin__table-wrap"><table class="admin__table" id="adminGames"></table></div>
+
+        <h3 class="admin__section-title">Scores</h3>
+        <div class="admin__table-wrap"><table class="admin__table" id="adminScores"></table></div>
       </section>
     </main>
   </div>
@@ -67,8 +141,32 @@
     </div>
   </div>
 
+  <!-- Modale règles -->
+  <div class="modal" id="rulesModal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__card" role="dialog" aria-modal="true" aria-label="Règles du jeu">
+      <button class="modal__close" data-close type="button" aria-label="Fermer">×</button>
+
+      <h2 class="modal__title">Règles du jeu</h2>
+      <ol class="rules-list">
+        <li>Un mot mystère est tiré au hasard : tu connais sa longueur et sa première lettre.</li>
+        <li>Tu disposes de <b>6 essais</b> pour le deviner.</li>
+        <li>À chaque proposition, chaque lettre devient <b>verte</b> (bien placée), <b>jaune</b> (mal placée, ailleurs dans le mot) ou <b>grise</b> (absente).</li>
+        <li>Le mot proposé doit avoir la bonne longueur et exister dans le dictionnaire, sinon l'essai n'est pas décompté.</li>
+        <li>Tu peux choisir la taille de la grille avant de lancer une partie.</li>
+      </ol>
+      <div class="hero__row hero__row--sm" aria-hidden="true">
+        <div class="hero__tile hero__tile--correct">C</div>
+        <div class="hero__tile hero__tile--present">H</div>
+        <div class="hero__tile hero__tile--absent">E</div>
+        <div class="hero__tile hero__tile--correct">V</div>
+        <div class="hero__tile hero__tile--present">A</div>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast" role="status" aria-live="assertive" hidden></div>
 
-  <script src="app.js?v=2"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>
