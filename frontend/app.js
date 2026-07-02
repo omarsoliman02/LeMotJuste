@@ -299,6 +299,7 @@ function renderCaption() {
 
 function renderBoard() {
   const cols = state.game ? state.game.wordLength : 5;
+  el.board.style.setProperty("--cols", cols);
   el.board.replaceChildren(
     ...Array.from({ length: MAX_ATTEMPTS }, (_, r) => buildRow(r, cols))
   );
