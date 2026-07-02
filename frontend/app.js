@@ -5,6 +5,15 @@
 const GATEWAY =
   new URLSearchParams(location.search).get("api") || "http://localhost:8080";
 
+// Vue admin : pas d'authentification côté serveur (hors périmètre du projet), donc
+// gardée simple côté client — le bouton est visible mais mène à un écran de connexion
+// dédié qui demande un mot de passe avant d'afficher les données.
+const ADMIN_CODE = "motus-admin";
+const ADMIN_UNLOCK_KEY = "lemotjuste-admin-unlocked";
+
+const STATUS_LABELS = { IN_PROGRESS: "En cours", WON: "Gagnée", LOST: "Perdue" };
+const STATUS_TAG_CLASS = { IN_PROGRESS: "tag--progress", WON: "tag--won", LOST: "tag--lost" };
+
 const MAX_ATTEMPTS = 6;
 
 // Clavier AZERTY. Les mots sont normalisés côté serveur (majuscules, sans accents).
@@ -20,6 +29,8 @@ const BACKSPACE_SVG =
 // Pour colorer une touche, le meilleur statut gagne.
 const RANK = { ABSENT: 0, PRESENT: 1, CORRECT: 2 };
 
+const GRID_SIZES = [null, 4, 5, 6, 7, 8, 9, 10];
+
 const state = {
   player: null,
   players: [],
@@ -29,12 +40,15 @@ const state = {
   keyStates: {},
   revealRow: null,
   busy: false,
+  wordLength: null,
 };
 
 const $ = (id) => document.getElementById(id);
 const el = {
   changePlayer: $("changePlayer"),
   openStats: $("openStats"),
+  openRules: $("openRules"),
+  openAdmin: $("openAdmin"),
   start: $("start"),
   play: $("play"),
   signinForm: $("signinForm"),
@@ -45,6 +59,8 @@ const el = {
   caption: $("caption"),
   board: $("board"),
   result: $("result"),
+  sizeSelect: $("sizeSelect"),
+  sizeOptions: $("sizeOptions"),
   actions: $("actions"),
   startBtn: $("startBtn"),
   keyboard: $("keyboard"),
@@ -53,6 +69,20 @@ const el = {
   historyEmpty: $("historyEmpty"),
   leaderboardList: $("leaderboardList"),
   leaderboardEmpty: $("leaderboardEmpty"),
+  rulesModal: $("rulesModal"),
+  adminLogin: $("adminLogin"),
+  adminLoginForm: $("adminLoginForm"),
+  adminPasswordInput: $("adminPasswordInput"),
+  adminLoginError: $("adminLoginError"),
+  adminLoginCancel: $("adminLoginCancel"),
+  adminView: $("adminView"),
+  closeAdmin: $("closeAdmin"),
+  cancelGameBtn: $("cancelGameBtn"),
+  refreshAdmin: $("refreshAdmin"),
+  adminCards: $("adminCards"),
+  adminLeaderboard: $("adminLeaderboard"),
+  adminGames: $("adminGames"),
+  adminScores: $("adminScores"),
   toast: $("toast"),
 };
 
@@ -131,9 +161,11 @@ async function startGame() {
   if (state.busy || !state.player) return;
   setBusy(true, el.startBtn);
   try {
+    const body = { playerId: state.player.id };
+    if (state.wordLength) body.wordLength = state.wordLength;
     const game = await api("/api/games", {
       method: "POST",
-      body: JSON.stringify({ playerId: state.player.id }),
+      body: JSON.stringify(body),
     });
     state.game = game;
     state.guesses = [];
@@ -142,6 +174,8 @@ async function startGame() {
     state.revealRow = null;
     el.result.hidden = true;
     el.actions.hidden = true;
+    el.sizeSelect.hidden = true;
+    el.cancelGameBtn.hidden = false;
     el.keyboard.setAttribute("aria-hidden", "false");
     render();
   } catch (e) {
@@ -149,6 +183,31 @@ async function startGame() {
   } finally {
     setBusy(false, el.startBtn);
   }
+}
+
+/** Abandonne la partie en cours côté client pour revenir choisir une autre taille de grille. */
+function cancelGame() {
+  if (!isPlaying()) return;
+  resetGame();
+}
+
+// --- Sélecteur de taille de grille ---
+function buildSizeOptions() {
+  el.sizeOptions.replaceChildren(
+    ...GRID_SIZES.map((size) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "size-select__opt";
+      b.textContent = size === null ? "Auto" : String(size);
+      if (state.wordLength === size) b.classList.add("size-select__opt--active");
+      b.addEventListener("click", () => {
+        state.wordLength = size;
+        [...el.sizeOptions.children].forEach((c) => c.classList.remove("size-select__opt--active"));
+        b.classList.add("size-select__opt--active");
+      });
+      return b;
+    })
+  );
 }
 
 function isPlaying() {
@@ -197,6 +256,8 @@ function endGame() {
     : `Raté. Le mot était <b>${escapeHtml(state.game.solution || "")}</b>.`;
   toast(won ? "Bien joué" : `Le mot était ${state.game.solution}`);
   el.actions.hidden = false;
+  el.sizeSelect.hidden = false;
+  el.cancelGameBtn.hidden = true;
   el.startBtn.textContent = "Rejouer";
   refreshStats();
 }
@@ -209,6 +270,8 @@ function resetGame() {
   state.revealRow = null;
   el.result.hidden = true;
   el.actions.hidden = false;
+  el.sizeSelect.hidden = false;
+  el.cancelGameBtn.hidden = true;
   el.startBtn.textContent = "Commencer la partie";
   el.keyboard.setAttribute("aria-hidden", "true");
   render();
@@ -338,7 +401,7 @@ function pressBackspace() {
 }
 
 function onKeydown(e) {
-  if (el.play.hidden || !isPlaying() || !el.statsModal.hidden) return;
+  if (el.play.hidden || !isPlaying() || !el.statsModal.hidden || !el.rulesModal.hidden) return;
   if (e.key === "Enter") { e.preventDefault(); submitGuess(); }
   else if (e.key === "Backspace") { e.preventDefault(); pressBackspace(); }
   else if (/^[a-zA-Z]$/.test(e.key)) pressLetter(e.key);
@@ -401,6 +464,137 @@ function openStats() {
   el.statsModal.hidden = false;
 }
 function closeStats() { el.statsModal.hidden = true; }
+
+// --- Vue admin ---
+function isAdminUnlocked() {
+  return sessionStorage.getItem(ADMIN_UNLOCK_KEY) === "1";
+}
+
+function hideAllScreens() {
+  el.start.hidden = true;
+  el.play.hidden = true;
+  el.adminLogin.hidden = true;
+  el.adminView.hidden = true;
+}
+
+function showPreviousScreen() {
+  if (state.player) showPlay();
+  else showStart();
+}
+
+function openAdminEntry() {
+  if (isAdminUnlocked()) {
+    openAdmin();
+    return;
+  }
+  hideAllScreens();
+  el.adminLogin.hidden = false;
+  el.adminLoginError.hidden = true;
+  el.adminPasswordInput.value = "";
+  el.adminPasswordInput.focus();
+}
+
+function submitAdminLogin(e) {
+  e.preventDefault();
+  if (el.adminPasswordInput.value === ADMIN_CODE) {
+    sessionStorage.setItem(ADMIN_UNLOCK_KEY, "1");
+    openAdmin();
+  } else {
+    el.adminLoginError.hidden = false;
+    el.adminPasswordInput.value = "";
+    el.adminPasswordInput.focus();
+  }
+}
+
+async function openAdmin() {
+  hideAllScreens();
+  el.adminView.hidden = false;
+  await loadAdminData();
+}
+
+function closeAdminView() {
+  el.adminView.hidden = true;
+  showPreviousScreen();
+}
+
+function statusTag(status) {
+  return { html: `<span class="tag ${STATUS_TAG_CLASS[status] || ""}">${escapeHtml(STATUS_LABELS[status] || status)}</span>` };
+}
+
+function resultTag(won) {
+  return { html: `<span class="tag ${won ? "tag--won" : "tag--lost"}">${won ? "Gagné" : "Perdu"}</span>` };
+}
+
+async function loadAdminData() {
+  const [players, games, scores, leaderboard] = await Promise.all([
+    api("/api/players").catch(() => []),
+    api("/api/games").catch(() => []),
+    api("/api/scores").catch(() => []),
+    api("/api/scores/leaderboard").catch(() => []),
+  ]);
+  const names = new Map(players.map((p) => [p.id, p.username]));
+  const nameOf = (id) => names.get(id) || `Joueur ${id}`;
+
+  renderAdminCards(players, games, scores);
+
+  renderAdminTable(el.adminLeaderboard, ["Rang", "Joueur", "Victoires", "Parties jouées", "Taux de victoire"],
+    leaderboard.map((entry, i) => [
+      i + 1,
+      nameOf(entry.playerId),
+      entry.wins,
+      entry.gamesPlayed,
+      entry.gamesPlayed ? Math.round((entry.wins / entry.gamesPlayed) * 100) + " %" : "—",
+    ]));
+
+  renderAdminTable(el.adminGames, ["Joueur", "Taille de grille", "Statut"],
+    games.map((g) => [nameOf(g.playerId), g.wordLength, statusTag(g.status)]));
+
+  renderAdminTable(el.adminScores, ["Joueur", "Résultat", "Essais", "Mot", "Joué le"],
+    scores.map((s) => [nameOf(s.playerId), resultTag(s.won), s.attempts, s.word, formatDate(s.playedAt)]));
+}
+
+// Icônes ligne (même style que les pictogrammes de l'accueil) plutôt que des emojis.
+const ADMIN_CARD_ICONS = {
+  players: '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.4" stroke="currentColor" stroke-width="1.8"/><path d="M5 20c0-3.9 3.1-6 7-6s7 2.1 7 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  games: '<svg viewBox="0 0 24 24" fill="none"><rect x="2" y="8" width="6" height="8" rx="1.3" stroke="currentColor" stroke-width="1.8"/><rect x="9" y="8" width="6" height="8" rx="1.3" stroke="currentColor" stroke-width="1.8"/><rect x="16" y="8" width="6" height="8" rx="1.3" stroke="currentColor" stroke-width="1.8"/></svg>',
+  progress: '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3.5 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  winRate: '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M8 12.5l2.5 2.5L16 9.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+};
+
+function renderAdminCards(players, games, scores) {
+  const wins = scores.filter((s) => s.won).length;
+  const winRate = scores.length ? Math.round((wins / scores.length) * 100) : 0;
+  const inProgress = games.filter((g) => g.status === "IN_PROGRESS").length;
+  const cards = [
+    { icon: ADMIN_CARD_ICONS.players, accent: "gray", label: "Joueurs", value: players.length },
+    { icon: ADMIN_CARD_ICONS.games, accent: "dark", label: "Parties", value: games.length },
+    { icon: ADMIN_CARD_ICONS.progress, accent: "yellow", label: "En cours", value: inProgress },
+    { icon: ADMIN_CARD_ICONS.winRate, accent: "green", label: "Taux de victoire", value: winRate + " %" },
+  ];
+  el.adminCards.replaceChildren(
+    ...cards.map(({ icon, accent, label, value }, i) => {
+      const div = document.createElement("div");
+      div.className = `admin__card admin__card--${accent}`;
+      div.style.animationDelay = `${i * 0.07}s`;
+      div.innerHTML =
+        `<div class="admin__card-icon">${icon}</div>
+         <div class="admin__card-value">${value}</div>
+         <div class="admin__card-label">${label}</div>`;
+      return div;
+    })
+  );
+}
+
+function renderAdminTable(table, headers, rows) {
+  const renderCell = (cell) => (cell && typeof cell === "object" && "html" in cell) ? cell.html : escapeHtml(String(cell));
+  const thead = `<thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead>`;
+  const body = rows.length
+    ? rows.map((row, i) =>
+        `<tr style="animation-delay:${Math.min(i, 12) * 0.03}s">${row.map((cell) => `<td>${renderCell(cell)}</td>`).join("")}</tr>`
+      ).join("")
+    : `<tr><td class="empty" colspan="${headers.length}">Aucune donnée</td></tr>`;
+  table.innerHTML = thead + `<tbody>${body}</tbody>`;
+}
 
 // --- Utilitaires ---
 function showPlay() {
@@ -476,9 +670,25 @@ function init() {
     if (e.target.hasAttribute("data-close")) closeStats();
   });
 
+  el.openRules.addEventListener("click", () => { el.rulesModal.hidden = false; });
+  el.rulesModal.addEventListener("click", (e) => {
+    if (e.target.hasAttribute("data-close")) el.rulesModal.hidden = true;
+  });
+
+  el.openAdmin.addEventListener("click", openAdminEntry);
+  el.adminLoginForm.addEventListener("submit", submitAdminLogin);
+  el.adminLoginCancel.addEventListener("click", () => {
+    el.adminLogin.hidden = true;
+    showPreviousScreen();
+  });
+  el.closeAdmin.addEventListener("click", closeAdminView);
+  el.refreshAdmin.addEventListener("click", loadAdminData);
+
   el.startBtn.addEventListener("click", startGame);
+  el.cancelGameBtn.addEventListener("click", cancelGame);
   document.addEventListener("keydown", onKeydown);
 
+  buildSizeOptions();
   loadPlayers().then(renderPlayerChips);
 }
 
