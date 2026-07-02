@@ -1,17 +1,19 @@
 % =====================================================================
-%  Le Mot Juste — Rapport de projet (M2 MIAGE SITN)
-%  Applications Web orientées Services — Jeu Motus en microservices
+%  Le Mot Juste --- Rapport de projet (M2 MIAGE SITN)
+%  Applications Web orientées Services --- Jeu Motus en microservices
 %
 %  Compilation :
 %    pdflatex rapport.tex   (2 passes pour les références)
-%  Compile tel quel sur Overleaf. Pour une typographie française complète
-%  (césures, espaces avant : ; ! ?), décommentez la ligne babel ci-dessous.
+%  Compile tel quel sur Overleaf, avec tectonic, ou pdflatex. babel[french] gère
+%  les tirets et césures françaises. Guillemets volontairement en style droit
+%  ("...") plutôt que « » : plus sûr avec Latin Modern (évite un mauvais
+%  mappage de glyphe observé avec certains moteurs).
 % =====================================================================
 \documentclass[11pt,a4paper]{article}
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-% \usepackage[french]{babel}   % <- à activer sur Overleaf pour la typo FR
+\usepackage[french]{babel}
 \usepackage[margin=2.1cm]{geometry}
 \usepackage{xcolor}
 \usepackage{booktabs}
@@ -20,11 +22,6 @@
 \usetikzlibrary{positioning,shapes.geometric,fit,backgrounds}
 \usepackage{fancyhdr}
 \usepackage[colorlinks=true,linkcolor=black,urlcolor=blue!60!black,citecolor=black]{hyperref}
-
-% --- Libellés en français (sans babel) ---
-\renewcommand{\figurename}{Figure}
-\renewcommand{\tablename}{Tableau}
-\renewcommand{\refname}{Références}
 
 % --- Couleurs ---
 \definecolor{accent}{HTML}{B5651D}
@@ -37,7 +34,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \renewcommand{\headrulewidth}{0.4pt}
-\lhead{\small Le Mot Juste — Jeu Motus en microservices}
+\lhead{\small Le Mot Juste --- Jeu Motus en microservices}
 \rhead{\small M2 MIAGE SITN}
 \cfoot{\small \thepage}
 
@@ -62,19 +59,18 @@
   {\LARGE\bfseries Le Mot Juste}\\[2pt]
   {\large Jeu \textit{Motus} en architecture microservices}\\[6pt]
   {\color{accent}\rule{0.5\linewidth}{1pt}}\\[8pt]
-  {\normalsize Master 2 MIAGE SITN — Applications Web orientées Services}\\[2pt]
+  {\normalsize Master 2 MIAGE SITN --- Applications Web orientées Services}\\[2pt]
   {\normalsize Enseignant : M. Mouloud Menceur}\\[8pt]
-  % --- À COMPLÉTER : noms du binôme ---
   {\large\bfseries Binôme : Omar Soliman \quad\textbullet\quad Abderrahmane Tsouli}\\[4pt]
-  {\small Dépôt GitHub : \url{https://github.com/<compte>/<repo>}}\\[2pt]
-  {\small Juin 2026}
+  {\small Dépôt GitHub : \url{https://github.com/omarsoliman02/LeMotJuste}}\\[2pt]
+  {\small Juillet 2026}
 \end{center}
 \vspace{4pt}
 
 % =====================================================================
 \section{Présentation}
 % =====================================================================
-« Le Mot Juste » est une implémentation du jeu \textbf{Motus} sous forme de
+"Le Mot Juste" est une implémentation du jeu \textbf{Motus} sous forme de
 microservices Spring Boot. Le joueur démarre une partie, reçoit un mot mystère
 (longueur connue, première lettre révélée) et dispose de \textbf{6 essais} pour le
 deviner. À chaque proposition, le jeu indique, lettre par lettre, ce qui est bien
@@ -120,24 +116,24 @@ par l'API REST ou Feign.
   \begin{pgfonlayer}{background}
     \node[draw, dashed, rounded corners, inner sep=8pt,
           fit=(dbp)(dbg)(dbs),
-          label=below:{\footnotesize PostgreSQL — 1 conteneur, 3 bases}] {};
+          label=below:{\footnotesize PostgreSQL --- 1 conteneur, 3 bases}] {};
   \end{pgfonlayer}
 \end{tikzpicture}
 \caption{Schéma d'architecture. La gateway route \texttt{/api/players}, \texttt{/api/games}
-et \texttt{/api/scores}. game-service appelle player-service (« le joueur existe-t-il ? »)
-et score-service (« enregistrer le résultat »).}
+et \texttt{/api/scores}. game-service appelle player-service ("le joueur existe-t-il ?")
+et score-service ("enregistrer le résultat").}
 \end{figure}
 
 \textbf{Rôle des services.}
 \begin{itemize}[leftmargin=1.2em, itemsep=1pt, topsep=2pt]
-  \item \textbf{gateway (8080)} — Spring Cloud Gateway, point d'entrée unique, routage et CORS.
-  \item \textbf{player-service (8081)} — enregistrement et gestion des joueurs (base \texttt{motus\_players}).
-  \item \textbf{game-service (8082)} — logique Motus : mot mystère, validation, calcul lettre par lettre, dictionnaire (base \texttt{motus\_games}).
-  \item \textbf{score-service (8083)} — historique des parties, statistiques et classement (base \texttt{motus\_scores}).
+  \item \textbf{gateway (8080)} --- Spring Cloud Gateway, point d'entrée unique, routage et CORS.
+  \item \textbf{player-service (8081)} --- enregistrement et gestion des joueurs (base \texttt{motus\_players}).
+  \item \textbf{game-service (8082)} --- logique Motus : mot mystère, validation, calcul lettre par lettre, dictionnaire (base \texttt{motus\_games}).
+  \item \textbf{score-service (8083)} --- historique des parties, statistiques et classement (base \texttt{motus\_scores}).
 \end{itemize}
 
 % =====================================================================
-\section{Diagramme de classes « métier »}
+\section{Diagramme de classes "métier"}
 % =====================================================================
 \begin{figure}[h]
 \centering
@@ -180,7 +176,7 @@ est calculé à la volée et conservé côté client ; seul le résultat final e
 Langage           & Java 21 (LTS) \\
 Framework         & Spring Boot 4.0.7 \\
 Spring Cloud (BOM) & 2025.1.2 (Gateway + OpenFeign) \\
-Build             & Maven — un projet par service \\
+Build             & Maven --- un projet par service \\
 Persistance       & Spring Data JPA + PostgreSQL \\
 Conteneurisation  & Dockerfile multi-stage + docker-compose \\
 Orchestration     & Kubernetes / MiniKube \\
@@ -192,16 +188,16 @@ Frontend          & HTML + JS vanilla, style Wordle \\
 
 \textbf{Justification des principaux choix :}
 \begin{itemize}[leftmargin=1.2em, itemsep=1pt, topsep=2pt]
-  \item \textbf{Découpage par domaine métier} (joueurs / jeu / scores) — couplage faible,
+  \item \textbf{Découpage par domaine métier} (joueurs / jeu / scores) --- couplage faible,
         déploiement indépendant, chaque service propriétaire de sa base.
-  \item \textbf{Une seule instance PostgreSQL, trois bases logiques} — suffisant pour le
+  \item \textbf{Une seule instance PostgreSQL, trois bases logiques} --- suffisant pour le
         périmètre du projet, évite la lourdeur de trois conteneurs.
-  \item \textbf{OpenFeign synchrone} — simple et lisible, adapté aux flux « démarrer une
-        partie » et « enregistrer un score ».
-  \item \textbf{Spring Cloud Gateway} — point d'entrée unique : centralise routage et CORS.
-  \item \textbf{Frontend découplé} — page statique (HTML/JS) qui n'appelle que la gateway,
+  \item \textbf{OpenFeign synchrone} --- simple et lisible, adapté aux flux "démarrer une
+        partie" et "enregistrer un score".
+  \item \textbf{Spring Cloud Gateway} --- point d'entrée unique : centralise routage et CORS.
+  \item \textbf{Frontend découplé} --- page statique (HTML/JS) qui n'appelle que la gateway,
         sans dépendance ni outil de build ; interface inspirée de Wordle.
-  \item \textbf{Périmètre volontairement réduit} — pas d'Eureka, de Config Server ni de
+  \item \textbf{Périmètre volontairement réduit} --- pas d'Eureka, de Config Server ni de
         broker de messages : on privilégie la lisibilité.
 \end{itemize}
 
@@ -234,19 +230,19 @@ GET  & \texttt{/api/scores/leaderboard} & Classement \\
 % =====================================================================
 \section{Algorithme Motus}
 % =====================================================================
-Le cœur du jeu est le calcul lettre par lettre d'une proposition. Pour gérer
+Le c\oe{}ur du jeu est le calcul lettre par lettre d'une proposition. Pour gérer
 correctement les \textbf{lettres en double}, il se fait en \textbf{deux passes} :
 
 \begin{enumerate}[leftmargin=1.4em, itemsep=1pt, topsep=2pt]
-  \item \textbf{Passe 1} — pour chaque position, si la lettre proposée est identique à
+  \item \textbf{Passe 1} --- pour chaque position, si la lettre proposée est identique à
         celle du mot secret au même indice, elle est \texttt{CORRECT}. Les lettres non
         encore appariées du mot secret sont comptées dans une table de fréquences.
-  \item \textbf{Passe 2} — pour chaque position non \texttt{CORRECT}, si la lettre reste
+  \item \textbf{Passe 2} --- pour chaque position non \texttt{CORRECT}, si la lettre reste
         disponible dans la table, elle est \texttt{PRESENT} (et on décrémente le compteur),
         sinon \texttt{ABSENT}.
 \end{enumerate}
 
-\textit{Exemple} — mot secret \texttt{ALLER}, proposition \texttt{LELLE} :
+\textit{Exemple} --- mot secret \texttt{ALLER}, proposition \texttt{LELLE} :
 les deux \texttt{L} de la proposition sont bornés par le nombre réel de \texttt{L}
 restants après la passe~1, ce qui évite de signaler plus de lettres présentes qu'il
 n'en existe réellement. Toutes les chaînes sont normalisées (majuscules, sans accents) :
@@ -269,12 +265,12 @@ qu'avec la gateway.
 
 La page d'accueil (avant de choisir son pseudo) a été enrichie d'éléments visuels non
 textuels : une rangée de tuiles colorées façon Wordle en guise de bandeau, et trois
-pictogrammes illustrant en un coup d'œil les règles (indice de départ, six essais,
+pictogrammes illustrant en un coup d'\oe{}il les règles (indice de départ, six essais,
 code couleur). Un bouton \textbf{Règles} dans l'en-tête ouvre à tout moment une fenêtre
 récapitulant les règles du jeu, sans quitter l'écran en cours.
 
 Le joueur saisit ou choisit un nom, puis \textbf{choisit la taille de la grille}
-(4 à 10 lettres, ou « Auto » pour un tirage aléatoire comme avant) avant de démarrer
+(4 à 10 lettres, ou "Auto" pour un tirage aléatoire comme avant) avant de démarrer
 une partie : ce choix est transmis à \texttt{POST /api/games} via le champ optionnel
 \texttt{wordLength}, validé côté game-service par rapport aux bornes du dictionnaire.
 La longueur du mot et sa première lettre sont affichées, cette dernière apparaissant en
@@ -286,12 +282,16 @@ révélé ; une fenêtre de statistiques présente l'historique du joueur et le 
 conserve les réponses reçues pour redessiner la grille.
 
 Une \textbf{vue admin}, accessible depuis l'en-tête, agrège en lecture seule les
-données des trois services (\texttt{GET /api/players}, le nouvel endpoint
-\texttt{GET /api/games} qui liste toutes les parties tous joueurs confondus, et
-\texttt{GET /api/scores}) : cartes de synthèse (nombre de joueurs, de parties, de
-parties en cours, taux de victoire global) et tableaux détaillés. Aucune
-authentification n'a été ajoutée (hors périmètre du projet, cf. §8) : la vue est
-accessible à quiconque connaît l'URL du frontend, comme le reste de l'application.
+données des trois services (\texttt{GET /api/players}, l'endpoint
+\texttt{GET /api/games} qui liste toutes les parties tous joueurs confondus avec
+leur date de création, et \texttt{GET /api/scores}) : cartes de synthèse (nombre de
+joueurs, de parties, de parties en cours, taux de victoire global), classement des
+joueurs, et tableaux détaillés des parties et des scores, \textbf{filtrables par nom
+de joueur et par période} (recherche côté client, sans appel réseau supplémentaire
+puisque les données sont déjà chargées). L'accès est protégé par un mot de passe
+saisi sur un écran de connexion dédié ; comme Spring Security est hors périmètre du
+projet (cf. \S 8), cette protection reste côté client et ne remplace pas une
+authentification serveur.
 
 % --- Emplacement pour une capture du frontend ---
 % \begin{figure}[h]\centering
@@ -328,16 +328,15 @@ est dans \texttt{docs/kubernetes-guide.md}.
 % =====================================================================
 \section{Bilan}
 % =====================================================================
-% --- À PERSONNALISER : ces éléments sont un point de départ ---
 \textbf{Réussites.} Un découpage microservices clair et homogène (un même patron repris
-pour chaque service), un contrat d'API figé qui a permis aux deux binômes de travailler
+pour chaque service), un contrat d'API figé qui a permis aux deux membres du binôme de travailler
 en parallèle sans se bloquer, un algorithme Motus robuste aux lettres en double (validé
 par des tests unitaires), et une interface web soignée inspirée de Wordle.
 
 \textbf{Difficultés.} La gestion des doublons dans le calcul des lettres a demandé de la
 rigueur (d'où l'approche en deux passes). La configuration des versions récentes
 (Spring Boot 4, Spring Cloud Gateway réactif) et la communication inter-services
-(gestion des pannes : enregistrement du score en « best-effort ») ont représenté
+(gestion des pannes : enregistrement du score en "best-effort") ont représenté
 l'essentiel de l'effort de mise au point. Côté jeu, le dictionnaire initial, trop
 restreint, refusait des mots français corrects : nous l'avons remplacé par deux listes
 (mots courants pour la solution, large liste pour la validation).
