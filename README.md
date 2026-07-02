@@ -12,7 +12,7 @@ Jeu **Motus** en microservices Spring Boot — projet M2 « Applications Web ori
 | gateway | 8080 | point d'entrée unique (Spring Cloud Gateway) | — |
 | player-service | 8081 | enregistrement / gestion des joueurs | `motus_players` |
 | game-service | 8082 | logique du jeu Motus (mot mystère, validation, calcul) | `motus_games` |
-| score-service | 8083 | historique, statistiques, classement *(à venir)* | `motus_scores` |
+| score-service | 8083 | historique, statistiques, classement | `motus_scores` |
 
 Un seul conteneur PostgreSQL héberge les trois bases. Communication inter-services en
 OpenFeign (synchrone). Le frontend ne parle qu'à la gateway.
@@ -65,8 +65,9 @@ Maven doit utiliser le JDK 21 (`JAVA_HOME=$(/usr/libexec/java_home -v 21) mvn ..
 ├── score-service/    # microservice scores (historique, classement)
 ├── gateway/          # Spring Cloud Gateway
 ├── frontend/         # page de démo (HTML + JS, style Wordle)
-├── k8s/              # manifests Kubernetes / MiniKube (à venir)
-├── docs/             # documentation technique (architecture, diagrammes)
+├── k8s/              # manifests Kubernetes / MiniKube
+├── docs/             # documentation (architecture, guide Kubernetes, rapport LaTeX)
+├── scripts/          # scripts utilitaires (dictionnaires, test manuel de partie)
 ├── docker-compose.yml
 ├── serve.sh          # sert la page de démo sur http://localhost:5500
 └── init-db.sql       # crée motus_players / motus_games / motus_scores
@@ -77,4 +78,4 @@ Pour ouvrir la page de démo une fois les services lancés : `./serve.sh` puis
 
 ## Auteurs
 
-Projet réalisé en binôme — M2 MIAGE SITN.
+Projet réalisé en binôme — M2 MIAGE SITN : Omar Soliman & Abderrahmane Tsouli.
