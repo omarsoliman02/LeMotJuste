@@ -50,13 +50,30 @@ public class GameService {
     @Transactional
     public GameResponse start(StartGameRequest request) {
         verifyPlayerExists(request.playerId());
-        Game game = new Game(request.playerId(), dictionary.randomWord(), maxAttempts);
+        String secretWord = request.wordLength() == null
+                ? dictionary.randomWord()
+                : dictionary.randomWord(validatedLength(request.wordLength()));
+        Game game = new Game(request.playerId(), secretWord, maxAttempts);
         return GameResponse.from(repository.save(game));
     }
 
     @Transactional(readOnly = true)
     public GameResponse get(Long id) {
         return GameResponse.from(find(id));
+    }
+
+    @Transactional(readOnly = true)
+    public List<GameResponse> getAll() {
+        return repository.findAll().stream().map(GameResponse::from).toList();
+    }
+
+    private int validatedLength(int wordLength) {
+        if (wordLength < dictionary.minWordLength() || wordLength > dictionary.maxWordLength()) {
+            throw new IllegalArgumentException(
+                    "La taille de la grille doit être comprise entre " + dictionary.minWordLength()
+                            + " et " + dictionary.maxWordLength() + " lettres.");
+        }
+        return wordLength;
     }
 
     @Transactional

@@ -25,6 +25,8 @@ public class Dictionary {
 
     private final List<String> answers;
     private final Set<String> accepted;
+    private final int minLength;
+    private final int maxLength;
 
     public Dictionary(
             @Value("${game.dictionary-path:dictionnaire.txt}") String answersPath,
@@ -32,6 +34,8 @@ public class Dictionary {
             @Value("${game.min-word-length:4}") int minLength,
             @Value("${game.max-word-length:10}") int maxLength) {
 
+        this.minLength = minLength;
+        this.maxLength = maxLength;
         this.answers = load(answersPath, minLength, maxLength);
         if (answers.isEmpty()) {
             throw new IllegalStateException("Le dictionnaire des mots-mystères « " + answersPath + " » est vide.");
@@ -63,6 +67,16 @@ public class Dictionary {
         return answers.get(ThreadLocalRandom.current().nextInt(answers.size()));
     }
 
+    /** Tire un mot-mystère au hasard parmi ceux de la longueur demandée (déjà normalisé). */
+    public String randomWord(int length) {
+        List<String> candidates = answers.stream().filter(w -> w.length() == length).toList();
+        if (candidates.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Aucun mot-mystère de " + length + " lettres dans le dictionnaire.");
+        }
+        return candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
+    }
+
     /** Indique si une proposition (normalisée à la volée) est un mot accepté. */
     public boolean contains(String word) {
         return accepted.contains(TextNormalizer.normalize(word));
@@ -70,5 +84,13 @@ public class Dictionary {
 
     public int size() {
         return answers.size();
+    }
+
+    public int minWordLength() {
+        return minLength;
+    }
+
+    public int maxWordLength() {
+        return maxLength;
     }
 }

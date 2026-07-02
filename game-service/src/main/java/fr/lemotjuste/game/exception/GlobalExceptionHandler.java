@@ -17,7 +17,7 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
-    @ExceptionHandler({InvalidGuessException.class, UnknownPlayerException.class})
+    @ExceptionHandler({InvalidGuessException.class, UnknownPlayerException.class, IllegalArgumentException.class})
     public ResponseEntity<ApiError> handleBadRequest(RuntimeException ex) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage());
     }

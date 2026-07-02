@@ -61,6 +61,30 @@ class GameServiceTest {
     }
 
     @Test
+    void startWithRequestedWordLengthUsesIt() {
+        given(playerClient.getById(1L)).willReturn(new PlayerSummary(1L, "alice"));
+        given(dictionary.minWordLength()).willReturn(4);
+        given(dictionary.maxWordLength()).willReturn(10);
+        given(dictionary.randomWord(7)).willReturn("BONJOUR");
+        given(repository.save(any(Game.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+        GameResponse response = service.start(new fr.lemotjuste.game.dto.StartGameRequest(1L, 7));
+
+        assertThat(response.wordLength()).isEqualTo(7);
+        verify(dictionary).randomWord(7);
+    }
+
+    @Test
+    void startWithOutOfRangeWordLengthIsRejected() {
+        given(playerClient.getById(1L)).willReturn(new PlayerSummary(1L, "alice"));
+        given(dictionary.minWordLength()).willReturn(4);
+        given(dictionary.maxWordLength()).willReturn(10);
+
+        assertThatThrownBy(() -> service.start(new fr.lemotjuste.game.dto.StartGameRequest(1L, 20)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void guessWithWrongLengthIsRejectedAndNotCounted() {
         Game game = new Game(1L, "MAISON", 6);
         given(repository.findById(10L)).willReturn(Optional.of(game));

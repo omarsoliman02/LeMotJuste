@@ -6,6 +6,7 @@ import fr.lemotjuste.game.entity.GameStatus;
 /** Vue d'une partie exposée au client (sans le mot mystère). */
 public record GameResponse(
         Long id,
+        Long playerId,
         int wordLength,
         String firstLetter,
         int attemptsLeft,
@@ -16,6 +17,7 @@ public record GameResponse(
         String secret = game.getSecretWord();
         return new GameResponse(
                 game.getId(),
+                game.getPlayerId(),
                 secret.length(),
                 String.valueOf(secret.charAt(0)),
                 game.getAttemptsLeft(),

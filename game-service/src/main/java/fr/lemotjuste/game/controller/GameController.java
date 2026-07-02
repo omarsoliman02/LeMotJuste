@@ -7,6 +7,7 @@ import fr.lemotjuste.game.dto.StartGameRequest;
 import fr.lemotjuste.game.service.GameService;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,6 +35,12 @@ public class GameController {
     @GetMapping("/{id}")
     public GameResponse get(@PathVariable Long id) {
         return service.get(id);
+    }
+
+    /** Liste toutes les parties, tous joueurs confondus (utilisé par la vue admin). */
+    @GetMapping
+    public List<GameResponse> getAll() {
+        return service.getAll();
     }
 
     @PostMapping("/{id}/guess")
