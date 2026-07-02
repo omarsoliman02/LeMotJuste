@@ -90,8 +90,8 @@ body {
   font-weight: 800;
 }
 .header__side { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.header__side--left { grid-area: left; justify-self: start; }
-.header__side--right { grid-area: right; justify-self: end; }
+.header__side--left { grid-area: left; justify-self: start; justify-content: flex-start; }
+.header__side--right { grid-area: right; justify-self: end; justify-content: flex-end; }
 .header__btn--admin { border-color: var(--gray); }
 
 /* Encore un peu plus compact sur les très petits écrans. */
