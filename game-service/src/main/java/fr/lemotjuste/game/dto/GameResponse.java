@@ -2,6 +2,7 @@ package fr.lemotjuste.game.dto;
 
 import fr.lemotjuste.game.entity.Game;
 import fr.lemotjuste.game.entity.GameStatus;
+import java.time.Instant;
 
 /** Vue d'une partie exposée au client (sans le mot mystère). */
 public record GameResponse(
@@ -10,7 +11,8 @@ public record GameResponse(
         int wordLength,
         String firstLetter,
         int attemptsLeft,
-        GameStatus status
+        GameStatus status,
+        Instant createdAt
 ) {
 
     public static GameResponse from(Game game) {
@@ -21,7 +23,8 @@ public record GameResponse(
                 secret.length(),
                 String.valueOf(secret.charAt(0)),
                 game.getAttemptsLeft(),
-                game.getStatus()
+                game.getStatus(),
+                game.getCreatedAt()
         );
     }
 }
