@@ -8,7 +8,10 @@ statistiques). Trois fichiers :
 - `styles.css` : mise en forme ;
 - `app.js` : appels à la gateway, grille, clavier, historique, classement.
 
-La page appelle uniquement la gateway (`http://localhost:8080`).
+La page appelle uniquement la gateway. En local (`serve.sh`), c'est `http://localhost:8080`
+par défaut ; en production (servie par Caddy sur son propre domaine), c'est la même origine
+(`/api/**` proxié par Caddy vers la gateway) — voir [`deploy/README.md`](../deploy/README.md).
+Dans les deux cas, surchargeable via `?api=`.
 
 ## Déroulé
 

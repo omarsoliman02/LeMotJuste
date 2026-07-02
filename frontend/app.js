@@ -2,8 +2,13 @@
 // Les essais ne sont pas stockés côté serveur : on garde la liste des GuessResponse
 // en mémoire pour redessiner la grille.
 
+// En local (serve.sh) la page vise la gateway sur :8080 par défaut. En prod, Caddy
+// sert la page et proxy /api/** vers la gateway sur le même domaine : même origine.
 const GATEWAY =
-  new URLSearchParams(location.search).get("api") || "http://localhost:8080";
+  new URLSearchParams(location.search).get("api") ||
+  (["localhost", "127.0.0.1"].includes(location.hostname)
+    ? "http://localhost:8080"
+    : location.origin);
 
 // Vue admin : pas d'authentification côté serveur (hors périmètre du projet), donc
 // gardée simple côté client — le bouton est visible mais mène à un écran de connexion
