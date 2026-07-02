@@ -5,6 +5,7 @@ services:
   postgres:
     image: postgres:17-alpine
     container_name: lemotjuste-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: motus
       POSTGRES_PASSWORD: motus
@@ -23,6 +24,7 @@ services:
   player-service:
     build: ./player-service
     container_name: lemotjuste-player
+    restart: unless-stopped
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/motus_players
       SPRING_DATASOURCE_USERNAME: motus
@@ -36,6 +38,7 @@ services:
   game-service:
     build: ./game-service
     container_name: lemotjuste-game
+    restart: unless-stopped
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/motus_games
       SPRING_DATASOURCE_USERNAME: motus
@@ -53,6 +56,7 @@ services:
   score-service:
     build: ./score-service
     container_name: lemotjuste-score
+    restart: unless-stopped
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/motus_scores
       SPRING_DATASOURCE_USERNAME: motus
@@ -66,6 +70,7 @@ services:
   gateway:
     build: ./gateway
     container_name: lemotjuste-gateway
+    restart: unless-stopped
     environment:
       PLAYER_SERVICE_URI: http://player-service:8081
       GAME_SERVICE_URI: http://game-service:8082

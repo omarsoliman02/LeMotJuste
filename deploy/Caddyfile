@@ -1,0 +1,19 @@
+# Caddyfile de prod pour lemotjuste.duckdns.org, à installer tel quel en
+# /etc/caddy/Caddyfile sur la VM. Caddy gère le certificat TLS (Let's Encrypt,
+# HTTP-01) automatiquement dès que le domaine pointe vers la VM et que les
+# ports 80/443 sont ouverts.
+#
+# Sert le frontend statique en direct depuis le repo (pas de copie, pas de
+# build) et proxy /api/** vers la gateway (docker compose, port 8080, jamais
+# exposée directement sur Internet — voir README de ce dossier).
+
+lemotjuste.duckdns.org {
+	handle /api/* {
+		reverse_proxy localhost:8080
+	}
+
+	handle {
+		root * /home/ubuntu/LeMotJuste/frontend
+		file_server
+	}
+}
