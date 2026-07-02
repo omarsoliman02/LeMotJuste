@@ -169,9 +169,9 @@ echo "$(minikube ip)  lemotjuste.local" | sudo tee -a /etc/hosts
    kubectl get svc -n lemotjuste
    ```
 2. **Jouer une partie en direct** via le frontend (`./serve.sh`, `?api=<url gateway>`) :
-   créer un joueur, choisir une **taille de grille** (nouvelle fonctionnalité), jouer
-   jusqu'à la fin, ouvrir **Stats** puis la **vue Admin** pour montrer parties/joueurs/
-   scores agrégés côté cluster.
+   créer un joueur, choisir une **taille de grille**, jouer jusqu'à la fin, ouvrir **Stats**
+   puis la **vue Admin** (mot de passe `motus-admin`) pour montrer le classement et les
+   parties/scores agrégés côté cluster, filtrables par joueur et par période.
 3. **Montrer le self-healing** : tuer un pod et regarder Kubernetes le recréer seul.
    ```bash
    kubectl delete pod -n lemotjuste -l app=game-service

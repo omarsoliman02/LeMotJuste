@@ -121,12 +121,15 @@ Contrainte : `username` non vide, 3–20 caractères, unique.
 
 | Méthode | Chemin | Corps | Réponse | Erreurs |
 |---------|--------|-------|---------|---------|
-| POST | `/api/games` | `{ "playerId": 1 }` | 201 `GameResponse` | 400 (playerId manquant / joueur inexistant), 503 (player-service injoignable) |
+| POST | `/api/games` | `{ "playerId": 1, "wordLength": 6 }` | 201 `GameResponse` | 400 (playerId manquant / joueur inexistant / wordLength hors bornes), 503 (player-service injoignable) |
 | POST | `/api/games/{id}/guess` | `{ "word": "cheval" }` | 200 `GuessResponse` | 400 (mauvaise longueur / hors dictionnaire — essai non décompté), 404 (partie inconnue), 409 (partie terminée) |
 | GET  | `/api/games/{id}` | — | 200 `GameResponse` | 404 |
+| GET  | `/api/games` | — | 200 `GameResponse[]` (toutes les parties, tous joueurs — utilisé par la vue admin) | — |
 
-`GameResponse` : `{ "id":1, "wordLength":6, "firstLetter":"C", "attemptsLeft":6, "status":"IN_PROGRESS" }`
-— le mot mystère n'est **jamais** exposé.
+`GameResponse` : `{ "id":1, "playerId":1, "wordLength":6, "firstLetter":"C", "attemptsLeft":6, "status":"IN_PROGRESS", "createdAt":"2026-06-29T10:00:00Z" }`
+— le mot mystère n'est **jamais** exposé. `wordLength` dans la requête `POST /api/games` est
+**optionnel** : absent, un mot de longueur quelconque est tiré (comportement historique) ;
+fourni, il doit être dans `[game.min-word-length, game.max-word-length]` (4–10 par défaut).
 
 `GuessResponse` : `{ "letters":[{"letter":"C","status":"CORRECT"}, …], "status":"WON", "attemptsLeft":5, "solution":"CHEVAL" }`
 - `letters` : un `LetterResult` par lettre (`CORRECT` / `PRESENT` / `ABSENT`).
@@ -240,7 +243,8 @@ Ports : gateway **8080**, player **8081**, game **8082**, score **8083**, Postgr
 À respecter strictement — toute déviation se justifie en revue.
 
 - **PAS** d'Eureka, **PAS** de Spring Cloud Config, **PAS** de Kafka/RabbitMQ,
-  **PAS** d'authentification / Spring Security pour l'instant.
+  **PAS** d'authentification / Spring Security pour l'instant (le mot de passe de la vue
+  admin côté frontend est une simple protection cosmétique, pas une vraie authentification).
 - **PAS** de couche d'abstraction inutile (pas de mapper framework, pas d'interface
   à implémentation unique « au cas où », pas de générique prématuré).
 - Communication inter-services en **OpenFeign synchrone** uniquement.
@@ -257,49 +261,63 @@ Ports : gateway **8080**, player **8081**, game **8082**, score **8083**, Postgr
 - [x] **gateway** (routage)
 - [x] **game-service** (logique Motus, Feign → player + score, dictionnaire)
 - [x] **score-service** (historique / stats / classement)
-- [x] **frontend** (page de démo)
+- [x] **frontend** (page de démo, vue admin, responsive mobile)
 - [x] **manifests k8s / MiniKube** (`k8s/`, déployable via `kubectl apply -k k8s/`)
-- [ ] rapport PDF (5 pages)
+- [x] **déploiement production** (`deploy/`, Caddy + domaine `lemotjuste.duckdns.org`)
+- [x] rapport PDF (5 pages) — `docs/rapport.pdf`
 
 ---
 
-## 10. Reste à faire — guide pour le binôme
+## 10. Frontend — détail des écrans
 
-Tout se fait en **reproduisant le patron** player-service / game-service / score-service (mêmes
-couches, même gestion d'erreurs, DTO en records, Dockerfile multi-stage, entrée dans docker-compose).
+Page statique HTML + JS vanilla dans `frontend/` (`index.html`, `styles.css`, `app.js`), sans
+build ni dépendance, qui appelle **uniquement** la gateway. Style inspiré de Wordle (plateau
+centré, tuiles vert/jaune/gris, clavier AZERTY à états, police Libre Franklin). Responsive
+mobile (le conteneur fait au plus 500px de large que ce soit sur téléphone ou desktop ; header
+sur deux lignes titre/boutons ; tuiles de grille en taille fluide).
 
-> ✅ **score-service (8083) — fait.** Package `fr.lemotjuste.score`, base `motus_scores`, entité
-> `Score` (`id, playerId, gameId, won, attempts, word, playedAt`), 4 endpoints du §5.3 (contrat
-> d'entrée figé `POST /api/scores` respecté), classement par nombre de victoires, tests repository
-> (`@DataJpaTest` + H2) et controller. Présent dans `docker-compose.yml`. En Spring Boot 4, le slice
-> `@DataJpaTest` vit dans le module `spring-boot-data-jpa-test` (ajouté en scope `test`).
-> ✅ **Validé de bout en bout** : partie complète jouée via la gateway → le score est bien
-> enregistré (plus de warning « Score non enregistré » côté game-service), et il remonte via
-> `GET /api/scores?playerId=...` et `GET /api/scores/leaderboard`.
+- **Accueil** : bandeau de tuiles animées + 3 pictogrammes « comment jouer », formulaire de
+  connexion/création de joueur, joueurs récents.
+- **Partie** : sélecteur de taille de grille (4–10 lettres ou « Auto ») avant de lancer, bouton
+  « Annuler et changer la taille » pendant une partie en cours (abandon côté client, la partie
+  reste `IN_PROGRESS` en base — aucun endpoint de suppression n'existe côté serveur), grille et
+  clavier à états, modale de statistiques (historique + classement).
+- **Règles** : bouton « ? » dans l'en-tête, modale accessible à tout moment.
+- **Admin** : bouton visible par tous dans l'en-tête, mais mène à un écran de connexion par mot
+  de passe (`motus-admin`, en dur dans `app.js` — protection **côté client uniquement**, pas de
+  Spring Security ; cf. règle §8). Une fois déverrouillé (session), tableau de bord en lecture
+  seule : cartes de synthèse, classement des joueurs, tableaux Parties/Scores **filtrables par
+  nom de joueur et par période** (`GET /api/games`, `GET /api/scores`, `GET /api/scores/leaderboard`,
+  filtrage entièrement côté client puisque les données sont déjà chargées).
 
-> ✅ **frontend — fait.** Page statique HTML + JS vanilla dans `frontend/` (`index.html`,
-> `styles.css`, `app.js`), sans build ni dépendance, qui appelle **uniquement** la gateway.
-> Style inspiré de Wordle (plateau centré, tuiles vert/jaune/gris, clavier AZERTY à états,
-> modale de stats, police Libre Franklin). Parcours complet : choix/création du joueur →
-> partie (longueur + 1re lettre, indiquée par une lettre fantôme grise) → propositions avec
-> grille colorée (`CORRECT`/`PRESENT`/`ABSENT`) → fin de partie (solution révélée) → historique
-> et classement via `/api/scores`. Les essais sont conservés côté client (liste de `GuessResponse`).
-> Lancer avec `./serve.sh` (sert directement `frontend/` sur le port 5500, sans listing) ;
-> gateway surchargeable par `?api=`.
+Lancer avec `./serve.sh` (sert `frontend/` sur le port 5500, sans listing) ; gateway
+surchargeable par `?api=`. En production, c'est Caddy qui sert `frontend/` (voir `deploy/`).
 
-### 10.1 Déploiement k8s / MiniKube (`k8s/`) — ✅ fait
+## 11. Déploiement
+
+### 11.1 Kubernetes / MiniKube (`k8s/`)
 - Un `Deployment` + `Service` par composant (postgres, player, game, score, gateway), namespace
-  `lemotjuste`, le tout regroupé par un `kustomization.yaml`.
+  `lemotjuste`, regroupés par `kustomization.yaml`.
 - `Secret` pour les identifiants Postgres ; `ConfigMap` `postgres-init` (création des 3 bases) et
   `app-config` (URLs Feign + routage gateway) ; `PVC` pour Postgres.
 - gateway exposée en `NodePort 30080` ; `Ingress` optionnel (`lemotjuste.local`).
 - Chaque service attend Postgres via un `initContainer`, sondes readiness/liveness TCP.
-- Déploiement : `kubectl apply -k k8s/` (détails et build des images dans [`k8s/README.md`](k8s/README.md)).
+- Déploiement : `kubectl apply -k k8s/` (détails dans [`k8s/README.md`](k8s/README.md) et
+  [`docs/kubernetes-guide.md`](docs/kubernetes-guide.md), qui inclut un script de démo).
 - Validation hors cluster : `kubectl kustomize k8s/`.
 
-### 10.2 Rapport PDF (5 pages max) — à rendre avant le **4 juillet 2026**
-Brouillon LaTeX dans `docs/rapport.tex` (compile sur Overleaf, `pdflatex` en 2 passes ;
-schéma d'archi et diagramme de classes en TikZ). Reste à compléter : noms du binôme, lien
-du dépôt, et éventuellement une capture du frontend. Rubriques : noms du binôme ·
-compilation/exécution (renvoyer au README) · documentation technique (architecture, choix
-techniques) · bilan (ce qu'on a aimé/appris, difficultés). Envoi à mouloud.menceur@gmail.com.
+### 11.2 Production (`deploy/`)
+L'app tourne en public sur **https://lemotjuste.duckdns.org**. Caddy (paquet système sur la VM,
+hors Docker) sert `frontend/` en statique et reverse-proxy `/api/**` vers la gateway en local —
+même origine, pas de CORS. Seuls les ports 80/443 sont exposés côté cloud ; Docker Compose
+(`restart: unless-stopped`) fait tourner Postgres + les 3 services + la gateway en local sur la
+VM. Détails et procédure de mise à jour : [`deploy/README.md`](deploy/README.md).
+
+## 12. Rapport PDF
+
+`docs/rapport.tex` (5 pages, compile avec `tectonic rapport.tex`, `pdflatex` en 2 passes, ou sur
+Overleaf — `babel[french]` requis pour les tirets/césures ; guillemets volontairement en style
+droit `"..."` plutôt que `« »`, plus sûrs avec Latin Modern). PDF compilé : `docs/rapport.pdf`.
+Rubriques : noms du binôme · compilation/exécution (renvoie au README) · documentation
+technique (architecture, choix techniques, diagrammes de classes) · bilan. Envoi à
+mouloud.menceur@gmail.com avant le **4 juillet 2026**, avec le lien du dépôt GitHub.

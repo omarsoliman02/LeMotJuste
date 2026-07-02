@@ -17,6 +17,9 @@ Jeu **Motus** en microservices Spring Boot — projet M2 « Applications Web ori
 Un seul conteneur PostgreSQL héberge les trois bases. Communication inter-services en
 OpenFeign (synchrone). Le frontend ne parle qu'à la gateway.
 
+> Démo en ligne : **https://lemotjuste.duckdns.org** (voir [`deploy/README.md`](deploy/README.md)
+> pour le détail du déploiement production).
+
 ## Démarrage rapide
 
 Prérequis : Docker + Docker Compose.
@@ -66,7 +69,8 @@ Maven doit utiliser le JDK 21 (`JAVA_HOME=$(/usr/libexec/java_home -v 21) mvn ..
 ├── gateway/          # Spring Cloud Gateway
 ├── frontend/         # page de démo (HTML + JS, style Wordle)
 ├── k8s/              # manifests Kubernetes / MiniKube
-├── docs/             # documentation (architecture, guide Kubernetes, rapport LaTeX)
+├── deploy/           # déploiement production (Caddy + VM)
+├── docs/             # documentation (architecture, guide Kubernetes, rapport)
 ├── scripts/          # scripts utilitaires (dictionnaires, test manuel de partie)
 ├── docker-compose.yml
 ├── serve.sh          # sert la page de démo sur http://localhost:5500
@@ -74,7 +78,8 @@ Maven doit utiliser le JDK 21 (`JAVA_HOME=$(/usr/libexec/java_home -v 21) mvn ..
 ```
 
 Pour ouvrir la page de démo une fois les services lancés : `./serve.sh` puis
-`http://localhost:5500`.
+`http://localhost:5500`. Détail des écrans (jeu, règles, sélecteur de taille de grille,
+vue admin filtrable) : [`frontend/README.md`](frontend/README.md).
 
 ## Auteurs
 

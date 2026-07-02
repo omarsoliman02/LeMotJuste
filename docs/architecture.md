@@ -73,8 +73,9 @@ classDiagram
 - **Pas** d'Eureka / Config Server / broker de messages : périmètre volontairement
   réduit (cf. règles « on ne complique pas » dans CLAUDE.md).
 
-## 4. À compléter
+## 4. Pour aller plus loin
 
-- Détails game-service (gestion du dictionnaire, génération du mot, algorithme 2 passes).
-- Détails score-service (statistiques, requêtes de classement).
-- Captures d'écran du frontend pour le rapport.
+- Algorithme Motus (dictionnaire, génération du mot, calcul en 2 passes) : détaillé dans
+  `docs/rapport.tex` (§6) et dans le code de `game-service` (`GuessEvaluator`, `Dictionary`).
+- Déploiement Kubernetes / MiniKube, avec schémas et script de démo : `docs/kubernetes-guide.md`.
+- Déploiement production (Caddy + VM) : `deploy/README.md`.
