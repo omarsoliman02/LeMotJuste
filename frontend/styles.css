@@ -41,21 +41,28 @@ body {
 }
 
 /* En-tête */
+/* .app fait au maximum 500px de large, sur mobile comme sur desktop (colonne
+   centrée façon Wordle) : le header dispose donc toujours du même espace réduit,
+   quel que soit l'appareil. D'où une mise en page sur deux lignes en permanence
+   (titre au-dessus, boutons en dessous) plutôt qu'un point de rupture lié à la
+   largeur de la fenêtre — sinon les boutons peuvent chevaucher le titre dès que
+   plusieurs sont affichés en même temps (Admin, Changer, Stats, Règles). */
 .header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  column-gap: 24px;
-  height: 60px;
-  padding: 0 18px;
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas: "title title" "left right";
+  align-items: start;
+  row-gap: 8px;
+  column-gap: 8px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--line);
 }
 .header__title {
-  grid-column: 2;
+  grid-area: title;
   margin: 0;
   text-align: center;
   font-weight: 800;
-  font-size: 1.7rem;
+  font-size: 1.4rem;
   letter-spacing: .01em;
   white-space: nowrap;
 }
@@ -82,25 +89,13 @@ body {
   font-size: .85rem;
   font-weight: 800;
 }
-.header__side { display: flex; align-items: center; gap: 10px; }
-.header__side--left { grid-column: 1; justify-self: start; }
-.header__side--right { grid-column: 3; justify-self: end; }
+.header__side { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.header__side--left { grid-area: left; justify-self: start; }
+.header__side--right { grid-area: right; justify-self: end; }
 .header__btn--admin { border-color: var(--gray); }
 
-/* En dessous de cette largeur, les deux groupes de boutons ne tiennent plus à côté
-   du titre sur une seule ligne : on repasse le titre en pleine largeur au-dessus. */
-@media (max-width: 480px) {
-  .header {
-    grid-template-columns: 1fr 1fr;
-    grid-template-areas: "title title" "left right";
-    height: auto;
-    row-gap: 6px;
-    padding: 10px 12px;
-    column-gap: 8px;
-  }
-  .header__title { grid-area: title; grid-column: auto; font-size: 1.3rem; }
-  .header__side--left { grid-area: left; grid-column: auto; }
-  .header__side--right { grid-area: right; grid-column: auto; }
+/* Encore un peu plus compact sur les très petits écrans. */
+@media (max-width: 360px) {
   .header__btn { font-size: .78rem; padding: 5px 8px; }
   .header__btn--icon { width: 30px; height: 30px; }
 }
