@@ -62,7 +62,8 @@
   {\normalsize Master 2 MIAGE SITN --- Applications Web orientées Services}\\[2pt]
   {\normalsize Enseignant : M. Mouloud Menceur}\\[8pt]
   {\large\bfseries Binôme : Omar Soliman \quad\textbullet\quad Abderrahmane Tsouli}\\[4pt]
-  {\small Dépôt GitHub : \url{https://github.com/omarsoliman02/LeMotJuste}}\\[2pt]
+  {\small Dépôt GitHub : \url{https://github.com/omarsoliman02/LeMotJuste}}\\[1pt]
+  {\small Démo en ligne : \url{https://lemotjuste.duckdns.org}}\\[2pt]
   {\small Juillet 2026}
 \end{center}
 \vspace{4pt}
@@ -70,26 +71,27 @@
 % =====================================================================
 \section{Présentation}
 % =====================================================================
-"Le Mot Juste" est une implémentation du jeu \textbf{Motus} sous forme de
-microservices Spring Boot. Le joueur démarre une partie, reçoit un mot mystère
-(longueur connue, première lettre révélée) et dispose de \textbf{6 essais} pour le
-deviner. À chaque proposition, le jeu indique, lettre par lettre, ce qui est bien
-placé, mal placé ou absent. Les résultats sont historisés et donnent lieu à des
-statistiques et à un classement.
+"Le Mot Juste" est notre implémentation du jeu \textbf{Motus} sous forme de
+microservices Spring Boot. Le joueur démarre une partie, reçoit un mot mystère dont
+il connaît la longueur et la première lettre, puis dispose de \textbf{6 essais} pour
+le deviner. À chaque proposition, le jeu indique lettre par lettre ce qui est bien
+placé, mal placé ou absent, un peu comme dans Wordle. Les résultats sont historisés
+et alimentent des statistiques ainsi qu'un classement des joueurs.
 
-L'application est découpée par \textbf{domaine métier} : gestion des joueurs, logique
-du jeu, et historisation des scores. Un point d'entrée unique (la \textit{gateway})
-expose l'ensemble au client, qui ne communique jamais directement avec les services.
-Une page web de démonstration, dont l'interface s'inspire de \textit{Wordle}, permet
-de jouer entièrement depuis le navigateur.
+Nous avons découpé l'application par domaine métier : un service pour les joueurs, un
+pour la logique du jeu, un pour les scores. Un point d'entrée unique, la
+\textit{gateway}, expose l'ensemble au client, qui ne parle jamais directement à un
+service. Une page web permet de jouer entièrement depuis le navigateur, avec une
+interface que nous avons voulue proche de Wordle dans l'esprit.
 
 % =====================================================================
 \section{Architecture}
 % =====================================================================
-Le système repose sur quatre services Spring Boot et une instance PostgreSQL. La
-communication interne se fait en \textbf{OpenFeign synchrone}. Chaque service est
-\textbf{propriétaire de sa base} : aucun accès croisé direct, toute interaction passe
-par l'API REST ou Feign.
+Le système repose sur quatre services Spring Boot et une instance PostgreSQL
+partagée. La communication entre services se fait en OpenFeign, de façon
+synchrone, et chaque service reste propriétaire de sa propre base : aucun ne va lire
+ou écrire directement dans les tables d'un autre, tout passe par une API REST ou un
+appel Feign.
 
 \begin{figure}[h]
 \centering
@@ -120,17 +122,19 @@ par l'API REST ou Feign.
   \end{pgfonlayer}
 \end{tikzpicture}
 \caption{Schéma d'architecture. La gateway route \texttt{/api/players}, \texttt{/api/games}
-et \texttt{/api/scores}. game-service appelle player-service ("le joueur existe-t-il ?")
-et score-service ("enregistrer le résultat").}
+et \texttt{/api/scores}. game-service appelle player-service pour vérifier que le joueur
+existe et score-service pour enregistrer le résultat.}
 \end{figure}
 
-\textbf{Rôle des services.}
-\begin{itemize}[leftmargin=1.2em, itemsep=1pt, topsep=2pt]
-  \item \textbf{gateway (8080)} --- Spring Cloud Gateway, point d'entrée unique, routage et CORS.
-  \item \textbf{player-service (8081)} --- enregistrement et gestion des joueurs (base \texttt{motus\_players}).
-  \item \textbf{game-service (8082)} --- logique Motus : mot mystère, validation, calcul lettre par lettre, dictionnaire (base \texttt{motus\_games}).
-  \item \textbf{score-service (8083)} --- historique des parties, statistiques et classement (base \texttt{motus\_scores}).
-\end{itemize}
+Le \textbf{gateway} (port 8080) est le seul point d'entrée de l'application : c'est lui
+qui route les requêtes vers le bon service et qui gère les autorisations CORS pour le
+frontend. Le \textbf{player-service} (8081) s'occupe de l'enregistrement et de la
+gestion des joueurs, avec sa base \texttt{motus\_players}. Le \textbf{game-service}
+(8082) porte toute la logique du jeu : tirage du mot mystère, validation d'une
+proposition, calcul lettre par lettre, gestion du dictionnaire ; il stocke ses parties
+dans \texttt{motus\_games}. Enfin le \textbf{score-service} (8083) conserve
+l'historique des parties terminées, calcule les statistiques et le classement, dans
+\texttt{motus\_scores}.
 
 % =====================================================================
 \section{Diagramme de classes "métier"}
@@ -144,23 +148,26 @@ et score-service ("enregistrer le résultat").}
     \begin{minipage}{2.7cm}\centering\textbf{Player}\par\rule{\linewidth}{0.4pt}\par
     \raggedright id : Long\\ username : String\\ createdAt : Instant\end{minipage}};
   \node[cls, right=3cm of player] (game) {%
-    \begin{minipage}{3cm}\centering\textbf{Game}\par\rule{\linewidth}{0.4pt}\par
-    \raggedright id : Long\\ playerId : Long\\ secretWord : String\\ attemptsLeft : int\\ status : GameStatus\end{minipage}};
-  \node[cls, below=2.1cm of player] (score) {%
+    \begin{minipage}{3.1cm}\centering\textbf{Game}\par\rule{\linewidth}{0.4pt}\par
+    \raggedright id : Long\\ playerId : Long\\ secretWord : String\\ attemptsLeft : int\\ status : GameStatus\\ createdAt : Instant\end{minipage}};
+  \node[cls, below=2.3cm of player] (score) {%
     \begin{minipage}{2.7cm}\centering\textbf{Score}\par\rule{\linewidth}{0.4pt}\par
     \raggedright id : Long\\ playerId : Long\\ gameId : Long\\ won : boolean\\ attempts : int\\ word : String\\ playedAt : Instant\end{minipage}};
-  \node[cls, below=2.1cm of game] (attempt) {%
-    \begin{minipage}{3cm}\centering\textbf{Attempt}\par\rule{\linewidth}{0.4pt}\par
+  \node[cls, below=2.3cm of game] (attempt) {%
+    \begin{minipage}{3.1cm}\centering\textbf{Attempt}\par\rule{\linewidth}{0.4pt}\par
     \raggedright id : Long\\ word : String\\ letters : List$<$LetterResult$>$\end{minipage}};
 
   \draw[->,>=latex] (player) -- node[above,font=\scriptsize]{1 \quad joue \quad *} (game);
   \draw[->,>=latex] (player) -- node[left,font=\scriptsize]{1 \, historise \, *} (score);
   \draw[->,>=latex] (game) -- node[right,font=\scriptsize]{1 \, essais \, *} (attempt);
-  \draw[->,>=latex] (game) -- node[above,font=\scriptsize,sloped]{1 \; résultat \; 1} (score);
+  \draw[->,>=latex] (game) -- node[above,font=\scriptsize,sloped]{1 \; résultat \; 0..1} (score);
 \end{tikzpicture}
 \caption{Entités métier et relations. \texttt{Game.secretWord} n'est jamais renvoyé au
-client tant que la partie est \texttt{IN\_PROGRESS}. L'historique des essais (\texttt{Attempt})
-est calculé à la volée et conservé côté client ; seul le résultat final est persisté via \texttt{Score}.}
+client tant que la partie est \texttt{IN\_PROGRESS}. \texttt{GameStatus} vaut
+\texttt{IN\_PROGRESS}, \texttt{WON}, \texttt{LOST} ou \texttt{ABANDONED} ; seules les
+parties \texttt{WON}/\texttt{LOST} produisent un \texttt{Score}, une partie abandonnée
+n'en a aucun (relation 0..1). L'historique des essais (\texttt{Attempt}) est calculé à
+la volée et conservé côté client, jamais persisté.}
 \end{figure}
 
 % =====================================================================
@@ -176,35 +183,38 @@ est calculé à la volée et conservé côté client ; seul le résultat final e
 Langage           & Java 21 (LTS) \\
 Framework         & Spring Boot 4.0.7 \\
 Spring Cloud (BOM) & 2025.1.2 (Gateway + OpenFeign) \\
-Build             & Maven --- un projet par service \\
+Build             & Maven, un projet par service \\
 Persistance       & Spring Data JPA + PostgreSQL \\
 Conteneurisation  & Dockerfile multi-stage + docker-compose \\
 Orchestration     & Kubernetes / MiniKube \\
-Frontend          & HTML + JS vanilla, style Wordle \\
+Frontend          & HTML + JS vanilla, style Wordle, responsive \\
+Production        & Caddy (reverse proxy + TLS) sur une VM \\
 \bottomrule
 \end{tabular}
 \caption{Stack technique.}
 \end{table}
 
-\textbf{Justification des principaux choix :}
-\begin{itemize}[leftmargin=1.2em, itemsep=1pt, topsep=2pt]
-  \item \textbf{Découpage par domaine métier} (joueurs / jeu / scores) --- couplage faible,
-        déploiement indépendant, chaque service propriétaire de sa base.
-  \item \textbf{Une seule instance PostgreSQL, trois bases logiques} --- suffisant pour le
-        périmètre du projet, évite la lourdeur de trois conteneurs.
-  \item \textbf{OpenFeign synchrone} --- simple et lisible, adapté aux flux "démarrer une
-        partie" et "enregistrer un score".
-  \item \textbf{Spring Cloud Gateway} --- point d'entrée unique : centralise routage et CORS.
-  \item \textbf{Frontend découplé} --- page statique (HTML/JS) qui n'appelle que la gateway,
-        sans dépendance ni outil de build ; interface inspirée de Wordle.
-  \item \textbf{Périmètre volontairement réduit} --- pas d'Eureka, de Config Server ni de
-        broker de messages : on privilégie la lisibilité.
-\end{itemize}
+Nous avons découpé l'application par domaine métier (joueurs, jeu, scores) plutôt que
+par couche technique, ce qui limite le couplage entre services et permet à chacun de
+nous de travailler sur un service sans attendre l'autre. Une seule instance
+PostgreSQL héberge les trois bases logiques : trois conteneurs séparés n'auraient rien
+apporté vu la taille du projet. Pour la communication inter-services, nous avons
+préféré OpenFeign en synchrone à une solution par messages, car les deux flux qui en
+ont besoin (démarrer une partie, enregistrer un score) sont simples et n'ont pas
+besoin d'être découplés dans le temps.
+
+Le frontend est volontairement une page statique en HTML et JavaScript pur, sans
+framework ni étape de build, qui n'appelle que la gateway. Ce choix nous a permis
+d'itérer très vite dessus pendant tout le projet. Enfin, nous sommes restés sur un
+périmètre réduit assumé : pas d'Eureka, pas de Config Server, pas de broker de
+messages, parce que le projet ne justifiait pas cette complexité et que nous avons
+préféré du code lisible à une architecture qui aurait fait plus "microservices sur le
+papier" que réellement utile ici.
 
 % =====================================================================
 \section{API REST}
 % =====================================================================
-Toutes les routes sont exposées via la gateway (port 8080). Réponses et erreurs au
+Toutes les routes passent par la gateway (port 8080). Les erreurs répondent dans un
 format JSON homogène (\texttt{timestamp, status, error, message}).
 
 \begin{table}[h]
@@ -216,9 +226,11 @@ format JSON homogène (\texttt{timestamp, status, error, message}).
 \midrule
 POST & \texttt{/api/players}            & Créer un joueur (201 ; 409 si pris) \\
 GET  & \texttt{/api/players/\{id\}}     & Lire un joueur \\
-POST & \texttt{/api/games}              & Démarrer une partie (vérifie le joueur) \\
+POST & \texttt{/api/games}              & Démarrer une partie (taille de grille au choix) \\
 POST & \texttt{/api/games/\{id\}/guess} & Proposer un mot (calcul des lettres) \\
+POST & \texttt{/api/games/\{id\}/abandon} & Abandonner une partie en cours \\
 GET  & \texttt{/api/games/\{id\}}       & État d'une partie (sans le mot mystère) \\
+GET  & \texttt{/api/games}              & Lister toutes les parties (vue admin) \\
 POST & \texttt{/api/scores}             & Historiser un résultat (appelé en Feign) \\
 GET  & \texttt{/api/scores?playerId=}   & Historique d'un joueur \\
 GET  & \texttt{/api/scores/leaderboard} & Classement \\
@@ -230,68 +242,73 @@ GET  & \texttt{/api/scores/leaderboard} & Classement \\
 % =====================================================================
 \section{Algorithme Motus}
 % =====================================================================
-Le c\oe{}ur du jeu est le calcul lettre par lettre d'une proposition. Pour gérer
-correctement les \textbf{lettres en double}, il se fait en \textbf{deux passes} :
+Le c\oe{}ur du jeu est le calcul, lettre par lettre, d'une proposition par rapport au
+mot secret. La difficulté vient des lettres en double : il faut éviter qu'un mot avec
+deux fois la même lettre ne fasse apparaître trop de lettres "présentes". Nous avons
+résolu ça en deux passes. La première marque \texttt{CORRECT} chaque lettre bien
+placée et compte, dans une table de fréquences, les lettres du mot secret qui restent
+disponibles. La seconde passe reprend les positions non encore résolues : si la
+lettre proposée est encore disponible dans la table, elle devient \texttt{PRESENT} et
+on décrémente le compteur, sinon elle est \texttt{ABSENT}.
 
-\begin{enumerate}[leftmargin=1.4em, itemsep=1pt, topsep=2pt]
-  \item \textbf{Passe 1} --- pour chaque position, si la lettre proposée est identique à
-        celle du mot secret au même indice, elle est \texttt{CORRECT}. Les lettres non
-        encore appariées du mot secret sont comptées dans une table de fréquences.
-  \item \textbf{Passe 2} --- pour chaque position non \texttt{CORRECT}, si la lettre reste
-        disponible dans la table, elle est \texttt{PRESENT} (et on décrémente le compteur),
-        sinon \texttt{ABSENT}.
-\end{enumerate}
+Un exemple aide à comprendre pourquoi les deux passes sont nécessaires. Avec le mot
+secret \texttt{ALLER} et la proposition \texttt{LELLE}, les deux \texttt{L} de la
+proposition ne peuvent pas être tous les deux signalés "présents" puisque
+\texttt{ALLER} n'en contient que deux au total, et un seul n'est pas déjà à sa place.
+La première passe consomme d'abord ce qui est réellement à sa place, la seconde ne
+distribue que ce qu'il reste. Toutes les chaînes sont normalisées en majuscules et
+sans accents avant comparaison, ce qui rend le jeu insensible à la casse.
 
-\textit{Exemple} --- mot secret \texttt{ALLER}, proposition \texttt{LELLE} :
-les deux \texttt{L} de la proposition sont bornés par le nombre réel de \texttt{L}
-restants après la passe~1, ce qui évite de signaler plus de lettres présentes qu'il
-n'en existe réellement. Toutes les chaînes sont normalisées (majuscules, sans accents) :
-le jeu est insensible à la casse et aux accents.
-
-\textbf{Validation et dictionnaire.} Avant tout calcul, une proposition est rejetée
-(message en français, sans décompter d'essai) si sa longueur diffère de celle du mot
-mystère ou si le mot est inconnu. À la manière de Wordle, game-service s'appuie sur
-\textbf{deux listes} : une liste restreinte de mots courants dans laquelle est tirée la
-solution, et une liste beaucoup plus large de mots acceptés pour valider les
-propositions. Une proposition est valable si elle figure dans l'une des deux, ce qui
-permet de reconnaître bien plus de mots français tout en gardant des solutions usuelles.
+Côté validation, une proposition est rejetée avant tout calcul si sa longueur ne
+correspond pas au mot mystère ou si le mot n'existe pas dans le dictionnaire ; dans
+ce cas l'essai n'est pas décompté, avec un message clair pour le joueur. Comme dans
+Wordle, nous utilisons deux listes de mots : une liste restreinte de mots courants
+dans laquelle le mot mystère est tiré au sort, et une liste beaucoup plus large qui
+sert uniquement à valider si une proposition est un mot du dictionnaire. Cela permet
+d'accepter des mots plus rares ou familiers en proposition, tout en gardant des
+solutions toujours reconnaissables.
 
 % =====================================================================
-\section{Frontend (page de démo)}
+\section{Frontend}
 % =====================================================================
-La page de démonstration est une application statique (HTML et JavaScript, sans
-framework ni build) dont l'interface s'inspire de \textit{Wordle}. Elle ne communique
-qu'avec la gateway.
+Le frontend est une page statique (HTML, CSS, JavaScript, sans framework) qui ne
+parle qu'à la gateway et dont l'interface reprend les codes de Wordle : grille de
+tuiles colorées, clavier virtuel, police épaisse. Nous l'avons aussi rendue
+responsive, en gardant la même largeur de colonne centrée sur téléphone comme sur
+ordinateur, avec un en-tête qui passe sur deux lignes et des tuiles dont la taille
+s'ajuste au nombre de lettres pour ne jamais déborder de l'écran.
 
-La page d'accueil (avant de choisir son pseudo) a été enrichie d'éléments visuels non
-textuels : une rangée de tuiles colorées façon Wordle en guise de bandeau, et trois
-pictogrammes illustrant en un coup d'\oe{}il les règles (indice de départ, six essais,
-code couleur). Un bouton \textbf{Règles} dans l'en-tête ouvre à tout moment une fenêtre
-récapitulant les règles du jeu, sans quitter l'écran en cours.
+Sur l'écran d'accueil, avant de choisir son pseudo, une rangée de tuiles animées et
+trois pictogrammes résument en un coup d'\oe{}il comment jouer. Un bouton "Règles"
+dans l'en-tête ouvre à tout moment une fenêtre récapitulant les règles, sans quitter
+la partie en cours. Avant de lancer une partie, le joueur choisit la taille de la
+grille (de 4 à 10 lettres, ou "Auto" pour un tirage aléatoire comme au départ) : ce
+choix est transmis à \texttt{POST /api/games} et validé côté serveur.
 
-Le joueur saisit ou choisit un nom, puis \textbf{choisit la taille de la grille}
-(4 à 10 lettres, ou "Auto" pour un tirage aléatoire comme avant) avant de démarrer
-une partie : ce choix est transmis à \texttt{POST /api/games} via le champ optionnel
-\texttt{wordLength}, validé côté game-service par rapport aux bornes du dictionnaire.
-La longueur du mot et sa première lettre sont affichées, cette dernière apparaissant en
-gris clair sur la ligne en cours pour servir d'indice. À chaque proposition, la grille
-se colore lettre par lettre (vert : bien placée ; jaune : mal placée ; gris : absente)
-et un clavier AZERTY reflète l'état connu de chaque lettre. En fin de partie, le mot est
-révélé ; une fenêtre de statistiques présente l'historique du joueur et le classement
-(\texttt{/api/scores}). Les essais ne sont pas persistés côté serveur : la page
-conserve les réponses reçues pour redessiner la grille.
+Une question s'est posée en cours de route : que devient une partie que le joueur
+n'a jamais terminée, par exemple parce qu'il change d'avis sur la taille de grille ou
+qu'il ferme l'onglet ? Au départ, elle restait simplement "en cours" indéfiniment,
+ce qui polluait les statistiques. Nous avons ajouté un vrai statut
+\texttt{ABANDONED} et un endpoint dédié (\texttt{POST /api/games/\{id\}/abandon})
+qui marque la partie comme abandonnée sans lui attribuer de score. Le frontend
+l'appelle automatiquement quand le joueur clique sur "Annuler", quand il change de
+compte, et même à la fermeture de l'onglet grâce à \texttt{navigator.sendBeacon},
+qui reste fiable à ce moment précis contrairement à un appel réseau classique.
 
-Une \textbf{vue admin}, accessible depuis l'en-tête, agrège en lecture seule les
-données des trois services (\texttt{GET /api/players}, l'endpoint
-\texttt{GET /api/games} qui liste toutes les parties tous joueurs confondus avec
-leur date de création, et \texttt{GET /api/scores}) : cartes de synthèse (nombre de
-joueurs, de parties, de parties en cours, taux de victoire global), classement des
-joueurs, et tableaux détaillés des parties et des scores, \textbf{filtrables par nom
-de joueur et par période} (recherche côté client, sans appel réseau supplémentaire
-puisque les données sont déjà chargées). L'accès est protégé par un mot de passe
-saisi sur un écran de connexion dédié ; comme Spring Security est hors périmètre du
-projet (cf. \S 8), cette protection reste côté client et ne remplace pas une
-authentification serveur.
+La vue \textbf{admin}, accessible depuis l'en-tête, est protégée par un mot de passe
+saisi sur un écran de connexion dédié. C'est une protection côté client, pas une
+vraie authentification serveur : nous n'avons volontairement pas ajouté Spring
+Security, qui restait hors périmètre pour ce projet. Une fois connecté, l'admin
+retrouve six indicateurs synthétiques (nombre de
+joueurs, de parties, de parties en cours, taux de victoire global, parties perdues,
+parties abandonnées), le classement des joueurs, et deux tableaux détaillés (parties
+et scores) filtrables par nom de joueur et par période. Ce filtrage se fait entièrement
+côté client puisque les données sont déjà chargées, sans appel réseau supplémentaire.
+
+Quelques finitions viennent compléter l'ensemble : une favicon reprenant une tuile
+verte du jeu plutôt qu'un logo générique, et un titre cliquable dans l'en-tête qui
+ramène à l'écran principal, comme le ferait le logo d'une application, sans pour
+autant déconnecter le joueur ni abandonner une partie en cours.
 
 % --- Emplacement pour une capture du frontend ---
 % \begin{figure}[h]\centering
@@ -300,53 +317,95 @@ authentification serveur.
 % \end{figure}
 
 % =====================================================================
-\section{Compilation et exécution}
+\section{Déploiement et test de l'application}
 % =====================================================================
-La procédure complète figure dans le \texttt{README.md} du dépôt. En résumé, tout se
-lance via Docker Compose (PostgreSQL et ses trois bases, les services et la gateway) :
+Le projet peut être testé de trois façons, de la plus rapide à la plus complète.
 
+\textbf{1. Depuis un navigateur, sans rien installer.} L'application tourne en
+continu sur une VM que nous administrons, accessible à cette adresse :
+\begin{center}\url{https://lemotjuste.duckdns.org}\end{center}
+C'est le moyen le plus simple de tester le projet : il suffit d'ouvrir le lien pour
+créer un joueur et jouer une partie. En coulisses, Caddy sert le frontend en statique
+et fait suivre les appels \texttt{/api/**} vers la gateway, qui elle-même route vers
+les trois services ; le tout tourne en Docker Compose sur la VM avec redémarrage
+automatique en cas de reboot. Le détail de cette configuration est dans
+\texttt{deploy/README.md} du dépôt.
+
+\textbf{2. En local, avec Docker Compose.} C'est la façon la plus pratique de tester
+le code source directement, par exemple après un \texttt{git clone} :
 \small
 \begin{verbatim}
-docker compose up --build      # démarre toute la stack
-# créer un joueur puis jouer :
+docker compose up --build      # démarre Postgres, les 3 services et la gateway
+./serve.sh                     # sert le frontend sur http://localhost:5500
+\end{verbatim}
+\normalsize
+On peut aussi vérifier l'API directement en ligne de commande :
+\small
+\begin{verbatim}
 curl -X POST localhost:8080/api/players -H 'Content-Type: application/json' \
      -d '{"username":"alice"}'
 curl -X POST localhost:8080/api/games   -H 'Content-Type: application/json' \
-     -d '{"playerId":1}'
+     -d '{"playerId":1,"wordLength":6}'
 curl -X POST localhost:8080/api/games/1/guess -H 'Content-Type: application/json' \
      -d '{"word":"cheval"}'
 \end{verbatim}
 \normalsize
-La page de démo se lance ensuite avec \texttt{./serve.sh}, puis en ouvrant
-\url{http://localhost:5500}. Un déploiement sur \textbf{MiniKube} est également
-disponible (\texttt{kubectl apply -k k8s/} : un \texttt{Deployment} et un
-\texttt{Service} par composant, \texttt{Secret} pour les identifiants PostgreSQL,
-\texttt{ConfigMap} pour les URLs inter-services, gateway exposée en
-\texttt{NodePort}). Le guide détaillé, avec schémas d'architecture et script de démo,
-est dans \texttt{docs/kubernetes-guide.md}.
+La procédure complète, avec les commandes pour lancer un service seul ou faire
+tourner les tests, figure dans le \texttt{README.md} du dépôt.
+
+\textbf{3. Sur un cluster Kubernetes local (MiniKube).} Pour observer l'aspect
+orchestration du projet plutôt que le simple assemblage de conteneurs, les mêmes
+images tournent en \texttt{Deployment} et \texttt{Service} Kubernetes, avec
+\texttt{Secret} pour les identifiants PostgreSQL et \texttt{ConfigMap} pour les URLs
+inter-services :
+\small
+\begin{verbatim}
+kubectl apply -k k8s/
+kubectl get pods -n lemotjuste -w
+\end{verbatim}
+\normalsize
+La gateway est exposée en \texttt{NodePort}, et un guide pas à pas (schémas, script
+de démonstration incluant l'arrêt volontaire d'un pod pour observer le
+redémarrage automatique) se trouve dans \texttt{docs/kubernetes-guide.md}.
 
 % =====================================================================
 \section{Bilan}
 % =====================================================================
-\textbf{Réussites.} Un découpage microservices clair et homogène (un même patron repris
-pour chaque service), un contrat d'API figé qui a permis aux deux membres du binôme de travailler
-en parallèle sans se bloquer, un algorithme Motus robuste aux lettres en double (validé
-par des tests unitaires), et une interface web soignée inspirée de Wordle.
+\textbf{Réussites.} Nous sommes contents du résultat : un découpage microservices
+cohérent, avec le même patron repris pour chaque service, ce qui rend le code
+prévisible d'un service à l'autre. Fixer le contrat d'API tôt nous a permis de
+travailler chacun de notre côté sans se marcher dessus. L'algorithme de calcul des
+lettres tient la route face aux doublons, ce qu'on a pu vérifier avec des tests
+unitaires plutôt qu'à l'\oe{}il. Et l'interface, qu'on a pas mal retravaillée au fil
+des retours, ressemble maintenant à une vraie petite application plutôt qu'à une
+simple démo technique.
 
-\textbf{Difficultés.} La gestion des doublons dans le calcul des lettres a demandé de la
-rigueur (d'où l'approche en deux passes). La configuration des versions récentes
-(Spring Boot 4, Spring Cloud Gateway réactif) et la communication inter-services
-(gestion des pannes : enregistrement du score en "best-effort") ont représenté
-l'essentiel de l'effort de mise au point. Côté jeu, le dictionnaire initial, trop
-restreint, refusait des mots français corrects : nous l'avons remplacé par deux listes
-(mots courants pour la solution, large liste pour la validation).
+\textbf{Difficultés.} La gestion des lettres en double a été le point le plus subtil
+du projet : notre première version signalait parfois trop de lettres "présentes",
+d'où le passage à l'approche en deux passes décrite plus haut. Spring Boot 4 et
+Spring Cloud Gateway en version réactive nous ont aussi pris du temps à configurer
+correctement, tout comme la gestion des pannes entre services (on enregistre le
+score en "best-effort" : si score-service est indisponible, la partie se termine
+quand même). Une autre difficulté, plus tardive, a été de réaliser que les parties
+jamais terminées s'accumulaient silencieusement en base sans qu'on l'ait prévu au
+départ, ce qui nous a poussés à revoir le cycle de vie d'une partie avec le statut
+\texttt{ABANDONED}. Enfin, le dictionnaire initial était trop restreint et refusait
+des mots français pourtant corrects, ce que nous avons corrigé en le remplaçant par
+deux listes distinctes, l'une pour les solutions, l'autre plus large pour la
+validation.
 
-\textbf{Ce que nous avons appris.} L'architecture microservices et ses compromis,
-Spring Cloud Gateway, OpenFeign, la conteneurisation multi-stage avec Docker, la
-persistance JPA multi-bases et le déploiement sur MiniKube.
+\textbf{Ce que nous avons appris.} Au-delà de Spring Cloud Gateway et OpenFeign, ce
+projet nous a surtout appris à penser une application en plusieurs services qui
+doivent rester cohérents entre eux sans jamais partager leur base de données. On
+retient aussi la conteneurisation multi-stage avec Docker, le déploiement sur
+MiniKube, et la mise en production réelle derrière un reverse proxy, qui n'est pas
+tout à fait la même chose que de faire marcher un projet en local.
 
-\textbf{Ce que nous avons le plus / le moins aimé.} Nous avons apprécié la modularité et
-l'autonomie de chaque service ; la contrepartie a été la lourdeur de configuration et de
-débogage propre aux échanges inter-services.
+\textbf{Ce que nous avons le plus et le moins aimé.} On a aimé pouvoir faire évoluer
+chaque service indépendamment sans craindre de casser les autres, et voir
+l'application progressivement prendre forme jusqu'à devenir quelque chose qu'on a
+plaisir à montrer. En contrepartie, déboguer un échange entre deux services demande
+souvent d'aller regarder les logs des deux côtés à la fois, ce qui est plus long
+qu'une simple pile d'appels dans une application classique.
 
 \end{document}
