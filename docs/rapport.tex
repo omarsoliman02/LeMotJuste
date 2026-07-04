@@ -328,7 +328,7 @@ C'est le moyen le plus simple de tester le projet : il suffit d'ouvrir le lien p
 créer un joueur et jouer une partie. En coulisses, Caddy sert le frontend en statique
 et relaie les appels \texttt{/api/**} vers la gateway du cluster Kubernetes décrit
 ci-dessous (exposée en \texttt{NodePort}) : c'est donc l'orchestration Kubernetes qui
-répond derrière le lien public. Détails dans \texttt{deploy/README.md}.
+répond derrière le lien public.
 
 \textbf{2. En local, avec Docker Compose.} C'est la façon la plus pratique de tester
 le code source directement, par exemple après un \texttt{git clone} :
@@ -364,9 +364,9 @@ kubectl get pods -n lemotjuste -w
 \end{verbatim}
 \normalsize
 La gateway est exposée en \texttt{NodePort}, et nous avons validé le déploiement de
-bout en bout jusqu'à l'historisation d'un score en fin de partie. Un guide pas à pas
-(schémas, script de démonstration incluant l'arrêt volontaire d'un pod pour observer
-le redémarrage automatique) se trouve dans \texttt{docs/kubernetes-guide.md}.
+bout en bout jusqu'à l'historisation d'un score en fin de partie. Nous en avons aussi
+profité pour observer le \textit{self-healing} : en supprimant volontairement un pod
+avec \texttt{kubectl delete pod}, Kubernetes le relance seul en quelques secondes.
 
 % =====================================================================
 \section{Bilan}
