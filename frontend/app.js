@@ -16,8 +16,8 @@ const GATEWAY =
 const ADMIN_CODE = "motus-admin";
 const ADMIN_UNLOCK_KEY = "lemotjuste-admin-unlocked";
 
-const STATUS_LABELS = { IN_PROGRESS: "En cours", WON: "Gagnée", LOST: "Perdue" };
-const STATUS_TAG_CLASS = { IN_PROGRESS: "tag--progress", WON: "tag--won", LOST: "tag--lost" };
+const STATUS_LABELS = { IN_PROGRESS: "En cours", WON: "Gagnée", LOST: "Perdue", ABANDONED: "Abandonnée" };
+const STATUS_TAG_CLASS = { IN_PROGRESS: "tag--progress", WON: "tag--won", LOST: "tag--lost", ABANDONED: "tag--abandoned" };
 
 const MAX_ATTEMPTS = 6;
 
@@ -194,10 +194,23 @@ async function startGame() {
   }
 }
 
-/** Abandonne la partie en cours côté client pour revenir choisir une autre taille de grille. */
-function cancelGame() {
+/** Abandonne la partie en cours (côté serveur aussi, pour ne pas la laisser IN_PROGRESS
+ *  indéfiniment) et revient choisir une autre taille de grille. */
+async function cancelGame() {
   if (!isPlaying()) return;
+  await abandonCurrentGame();
   resetGame();
+}
+
+/** Best-effort : si l'appel échoue (réseau, partie déjà finie ailleurs...), on continue quand
+ *  même côté client — l'abandon n'est qu'un nettoyage, pas une action bloquante pour le joueur. */
+async function abandonCurrentGame() {
+  if (!isPlaying()) return;
+  try {
+    await api(`/api/games/${state.game.id}/abandon`, { method: "POST" });
+  } catch {
+    // ignoré : voir commentaire ci-dessus
+  }
 }
 
 // --- Sélecteur de taille de grille ---
@@ -691,7 +704,8 @@ function init() {
     }
   });
 
-  el.changePlayer.addEventListener("click", () => {
+  el.changePlayer.addEventListener("click", async () => {
+    await abandonCurrentGame();
     state.player = null;
     state.game = null;
     el.changePlayer.hidden = true;
@@ -732,6 +746,13 @@ function init() {
   el.startBtn.addEventListener("click", startGame);
   el.cancelGameBtn.addEventListener("click", cancelGame);
   document.addEventListener("keydown", onKeydown);
+
+  // Fermeture d'onglet / rechargement pendant une partie : fetch() n'est pas fiable à ce
+  // moment-là, sendBeacon si. Filet de sécurité en plus des abandons explicites ci-dessus,
+  // pour éviter d'accumuler des parties IN_PROGRESS orphelines côté admin.
+  window.addEventListener("pagehide", () => {
+    if (isPlaying()) navigator.sendBeacon(`${GATEWAY}/api/games/${state.game.id}/abandon`);
+  });
 
   buildSizeOptions();
   loadPlayers().then(renderPlayerChips);
