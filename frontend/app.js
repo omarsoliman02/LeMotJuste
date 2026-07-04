@@ -151,10 +151,15 @@ async function signIn(username) {
     (p) => p.username.toLowerCase() === username.toLowerCase()
   );
   if (existing) return existing;
-  return api("/api/players", {
+  const player = await api("/api/players", {
     method: "POST",
     body: JSON.stringify({ username }),
   });
+  // Sans ça, state.players ne connaît pas encore ce joueur tout juste créé : son nom
+  // n'apparaîtrait pas dans le classement avant un futur rechargement de la page
+  // (repli sur "Joueur {id}" dans loadLeaderboard/loadHistory).
+  state.players.push(player);
+  return player;
 }
 
 async function enterAs(player) {
