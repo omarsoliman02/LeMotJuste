@@ -627,17 +627,23 @@ const ADMIN_CARD_ICONS = {
   games: '<svg viewBox="0 0 24 24" fill="none"><rect x="2" y="8" width="6" height="8" rx="1.3" stroke="currentColor" stroke-width="1.8"/><rect x="9" y="8" width="6" height="8" rx="1.3" stroke="currentColor" stroke-width="1.8"/><rect x="16" y="8" width="6" height="8" rx="1.3" stroke="currentColor" stroke-width="1.8"/></svg>',
   progress: '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3.5 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   winRate: '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M8 12.5l2.5 2.5L16 9.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  lost: '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M9 9l6 6M15 9l-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  abandoned: '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M6.5 6.5l11 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
 };
 
 function renderAdminCards(players, games, scores) {
   const wins = scores.filter((s) => s.won).length;
   const winRate = scores.length ? Math.round((wins / scores.length) * 100) : 0;
   const inProgress = games.filter((g) => g.status === "IN_PROGRESS").length;
+  const lost = games.filter((g) => g.status === "LOST").length;
+  const abandoned = games.filter((g) => g.status === "ABANDONED").length;
   const cards = [
     { icon: ADMIN_CARD_ICONS.players, accent: "gray", label: "Joueurs", value: players.length },
     { icon: ADMIN_CARD_ICONS.games, accent: "dark", label: "Parties", value: games.length },
     { icon: ADMIN_CARD_ICONS.progress, accent: "yellow", label: "En cours", value: inProgress },
     { icon: ADMIN_CARD_ICONS.winRate, accent: "green", label: "Taux de victoire", value: winRate + " %" },
+    { icon: ADMIN_CARD_ICONS.lost, accent: "gray", label: "Perdues", value: lost },
+    { icon: ADMIN_CARD_ICONS.abandoned, accent: "muted", label: "Abandonnées", value: abandoned },
   ];
   el.adminCards.replaceChildren(
     ...cards.map(({ icon, accent, label, value }, i) => {

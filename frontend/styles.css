@@ -581,10 +581,12 @@ body {
 .admin__card--dark::before   { background: var(--text); }
 .admin__card--yellow::before { background: var(--yellow); }
 .admin__card--green::before  { background: var(--green); }
+.admin__card--muted::before  { background: var(--line); }
 .admin__card--gray   .admin__card-icon { color: var(--gray); }
 .admin__card--dark   .admin__card-icon { color: var(--text); }
 .admin__card--yellow .admin__card-icon { color: var(--yellow); }
 .admin__card--green  .admin__card-icon { color: var(--green); }
+.admin__card--muted  .admin__card-icon { color: var(--muted); }
 .admin__card-icon { margin: 0 auto 6px; width: 22px; height: 22px; }
 .admin__card-icon svg { width: 100%; height: 100%; }
 .admin__card-value { font-size: 1.6rem; font-weight: 800; }
