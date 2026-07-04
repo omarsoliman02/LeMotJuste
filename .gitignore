@@ -32,3 +32,7 @@ postgres-data/
 
 # Sujet du projet (document fourni, non versionné)
 projet-SITN-APP-Microservices-2025-2026.docx.pdf
+
+# Binaires d'outils téléchargés (ne pas versionner)
+minikube-linux-*
+kubectl

@@ -8,11 +8,14 @@ publique de la VM). Caddy est le seul point d'entrée Internet ; tout le reste
 
 - **Caddy** (installé en paquet système, pas en conteneur) sert `frontend/`
   en statique directement depuis le repo, et reverse-proxy `/api/**` vers la
-  gateway (`localhost:8080`). Même origine que le frontend → pas besoin de CORS
-  entre navigateur et gateway.
-- **`docker compose up --build -d`** (voir racine du repo) fait tourner
-  Postgres + les 3 services + la gateway, avec `restart: unless-stopped` pour
-  survivre à un reboot de la VM.
+  gateway du cluster **Kubernetes** (NodePort `192.168.49.2:30080`, cf.
+  [`../docs/kubernetes-guide.md`](../docs/kubernetes-guide.md)). Même origine que le
+  frontend → pas besoin de CORS entre navigateur et gateway.
+- Le backend (Postgres + les 3 services + la gateway) tourne sur le cluster
+  **Minikube** de la VM. Minikube ne redémarre pas seul au reboot : relancer
+  `minikube start` si le site renvoie 502. Alternative : la stack **Docker Compose**
+  (`docker compose up -d`, `restart: unless-stopped`) — pour l'utiliser comme backend,
+  remettre `reverse_proxy localhost:8080` dans le `Caddyfile`.
 - Le pare-feu (iptables / règles Oracle Cloud) n'autorise que 22 (SSH), 80 et
   443 en entrée : les ports 8080–8083 des conteneurs ne sont **pas** joignables
   depuis Internet même si `docker-compose.yml` les publie sur l'hôte (utile
@@ -46,8 +49,10 @@ sudo systemctl reload caddy
 ## Mettre à jour après un `git pull`
 
 - Frontend (HTML/CSS/JS) : rien à faire, Caddy le sert en direct depuis le repo.
-- Backend (les 4 services Spring) : `docker compose up --build -d` pour
-  reconstruire les images modifiées.
+- Backend (les 4 services Spring) : reconstruire les images dans le démon Docker de
+  Minikube (`eval $(minikube docker-env) && docker compose build`), puis
+  `kubectl rollout restart deployment -n lemotjuste`. (En backend Docker Compose :
+  `docker compose up --build -d`.)
 - Si `deploy/Caddyfile` change : `sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
   && sudo systemctl reload caddy`.
 

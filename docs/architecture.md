@@ -1,7 +1,8 @@
 # Documentation technique — Le Mot Juste
 
 Document support pour le rapport (diagrammes + choix techniques). Le détail des
-contrats et conventions est dans [../CLAUDE.md](../CLAUDE.md).
+contrats d'API est dans le [README](../README.md) ; l'algorithme et le dictionnaire
+dans `docs/rapport.tex` (§6) et le code de `game-service`.
 
 ## 1. Schéma d'architecture
 
@@ -71,7 +72,7 @@ classDiagram
 - **Spring Cloud Gateway** comme point d'entrée unique : centralise le routage et,
   plus tard, CORS / sécurité.
 - **Pas** d'Eureka / Config Server / broker de messages : périmètre volontairement
-  réduit (cf. règles « on ne complique pas » dans CLAUDE.md).
+  réduit, on privilégie du code lisible et minimal.
 
 ## 4. Pour aller plus loin
 

@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 /**
- * Corps figé de l'enregistrement d'un résultat (cf. CLAUDE.md §5.3).
+ * Corps figé de l'enregistrement d'un résultat (cf. README, section API).
  * Émis tel quel par game-service ({@code RecordScoreRequest}) en fin de partie.
  */
 public record RecordScoreRequest(
