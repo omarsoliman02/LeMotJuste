@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=15">
+  <link rel="stylesheet" href="styles.css?v=16">
 </head>
 <body>
   <div class="app">
@@ -20,7 +20,8 @@
         <button class="header__btn header__btn--admin" id="openAdmin" type="button"
                 title="Espace admin">Admin</button>
       </div>
-      <h1 class="header__title">Le Mot Juste</h1>
+      <h1 class="header__title" id="homeTitle" tabindex="0" role="button"
+          aria-label="Retour à l'accueil">Le Mot Juste</h1>
       <div class="header__side header__side--right">
         <button class="header__btn" id="changePlayer" type="button" hidden>Changer</button>
         <button class="header__btn" id="openStats" type="button" hidden>Stats</button>
@@ -182,6 +183,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="assertive" hidden></div>
 
-  <script src="app.js?v=15"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>

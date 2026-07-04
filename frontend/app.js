@@ -50,6 +50,7 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 const el = {
+  homeTitle: $("homeTitle"),
   changePlayer: $("changePlayer"),
   openStats: $("openStats"),
   openRules: $("openRules"),
@@ -488,6 +489,19 @@ function openStats() {
 }
 function closeStats() { el.statsModal.hidden = true; }
 
+/** Clic sur le titre, comme un logo d'appli : ferme les modales et sort de l'admin pour
+ *  revenir à l'écran principal (partie en cours ou accueil). Ne déconnecte pas le joueur
+ *  et n'abandonne pas une partie en cours — ce n'est qu'une navigation, pas une réinitialisation. */
+function goHome() {
+  el.rulesModal.hidden = true;
+  el.statsModal.hidden = true;
+  if (!el.adminLogin.hidden || !el.adminView.hidden) {
+    el.adminLogin.hidden = true;
+    el.adminView.hidden = true;
+    showPreviousScreen();
+  }
+}
+
 // --- Vue admin ---
 function isAdminUnlocked() {
   return sessionStorage.getItem(ADMIN_UNLOCK_KEY) === "1";
@@ -686,6 +700,11 @@ function escapeHtml(s) {
 
 // --- Démarrage ---
 function init() {
+  el.homeTitle.addEventListener("click", goHome);
+  el.homeTitle.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goHome(); }
+  });
+
   el.signinForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const username = el.usernameInput.value.trim();

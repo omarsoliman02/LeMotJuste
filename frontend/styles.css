@@ -65,7 +65,11 @@ body {
   font-size: 1.4rem;
   letter-spacing: .01em;
   white-space: nowrap;
+  cursor: pointer;
+  border-radius: 6px;
 }
+.header__title:hover { opacity: .75; }
+.header__title:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
 .header__btn {
   font-family: inherit;
   font-size: .85rem;
