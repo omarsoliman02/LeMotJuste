@@ -67,6 +67,20 @@ public class GameService {
         return repository.findAll().stream().map(GameResponse::from).toList();
     }
 
+    /**
+     * Abandon volontaire d'une partie en cours (changement de taille de grille, changement de
+     * joueur...). Pas de score enregistré : une partie abandonnée n'est ni gagnée ni perdue.
+     */
+    @Transactional
+    public GameResponse abandon(Long id) {
+        Game game = find(id);
+        if (game.getStatus() != GameStatus.IN_PROGRESS) {
+            throw new GameAlreadyFinishedException("La partie " + id + " est déjà terminée.");
+        }
+        game.setStatus(GameStatus.ABANDONED);
+        return GameResponse.from(game);
+    }
+
     private int validatedLength(int wordLength) {
         if (wordLength < dictionary.minWordLength() || wordLength > dictionary.maxWordLength()) {
             throw new IllegalArgumentException(

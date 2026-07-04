@@ -35,8 +35,11 @@ public class Game {
     @Column(name = "attempts_left", nullable = false)
     private int attemptsLeft;
 
+    // columnDefinition explicite : évite qu'Hibernate génère automatiquement une contrainte
+    // CHECK figée sur les valeurs de l'enum au moment de la création de la table (avec
+    // ddl-auto=update, cette contrainte n'est jamais mise à jour si l'enum évolue ensuite).
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "varchar(20)")
     private GameStatus status;
 
     @Column(name = "created_at", nullable = false, updatable = false)

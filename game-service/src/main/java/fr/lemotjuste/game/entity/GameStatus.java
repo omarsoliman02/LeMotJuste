@@ -4,5 +4,6 @@ package fr.lemotjuste.game.entity;
 public enum GameStatus {
     IN_PROGRESS,
     WON,
-    LOST
+    LOST,
+    ABANDONED
 }

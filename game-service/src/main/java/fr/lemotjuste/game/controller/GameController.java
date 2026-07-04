@@ -47,4 +47,10 @@ public class GameController {
     public GuessResponse guess(@PathVariable Long id, @Valid @RequestBody GuessRequest request) {
         return service.guess(id, request);
     }
+
+    /** Abandon volontaire d'une partie en cours (409 si déjà terminée). */
+    @PostMapping("/{id}/abandon")
+    public GameResponse abandon(@PathVariable Long id) {
+        return service.abandon(id);
+    }
 }

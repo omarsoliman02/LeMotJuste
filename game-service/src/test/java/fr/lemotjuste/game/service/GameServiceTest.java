@@ -129,4 +129,25 @@ class GameServiceTest {
         assertThatThrownBy(() -> service.guess(10L, new GuessRequest("maison")))
                 .isInstanceOf(GameAlreadyFinishedException.class);
     }
+
+    @Test
+    void abandonMarksInProgressGameAsAbandonedWithoutRecordingScore() {
+        Game game = new Game(1L, "MAISON", 6);
+        given(repository.findById(10L)).willReturn(Optional.of(game));
+
+        GameResponse response = service.abandon(10L);
+
+        assertThat(response.status()).isEqualTo(GameStatus.ABANDONED);
+        verify(scoreClient, org.mockito.Mockito.never()).record(any(RecordScoreRequest.class));
+    }
+
+    @Test
+    void abandonOnFinishedGameIsRejected() {
+        Game game = new Game(1L, "MAISON", 6);
+        game.setStatus(GameStatus.LOST);
+        given(repository.findById(10L)).willReturn(Optional.of(game));
+
+        assertThatThrownBy(() -> service.abandon(10L))
+                .isInstanceOf(GameAlreadyFinishedException.class);
+    }
 }
