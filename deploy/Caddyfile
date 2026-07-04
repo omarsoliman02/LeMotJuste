@@ -4,12 +4,13 @@
 # ports 80/443 sont ouverts.
 #
 # Sert le frontend statique en direct depuis le repo (pas de copie, pas de
-# build) et proxy /api/** vers la gateway (docker compose, port 8080, jamais
-# exposée directement sur Internet — voir README de ce dossier).
+# build) et proxy /api/** vers la gateway Kubernetes (Minikube, NodePort
+# 192.168.49.2:30080). Pour rebasculer sur la stack Docker Compose, remettre
+# `reverse_proxy localhost:8080` (voir README de ce dossier).
 
 lemotjuste.duckdns.org {
 	handle /api/* {
-		reverse_proxy localhost:8080
+		reverse_proxy 192.168.49.2:30080
 	}
 
 	handle {
