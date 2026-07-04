@@ -123,6 +123,7 @@ Contrainte : `username` non vide, 3–20 caractères, unique.
 |---------|--------|-------|---------|---------|
 | POST | `/api/games` | `{ "playerId": 1, "wordLength": 6 }` | 201 `GameResponse` | 400 (playerId manquant / joueur inexistant / wordLength hors bornes), 503 (player-service injoignable) |
 | POST | `/api/games/{id}/guess` | `{ "word": "cheval" }` | 200 `GuessResponse` | 400 (mauvaise longueur / hors dictionnaire — essai non décompté), 404 (partie inconnue), 409 (partie terminée) |
+| POST | `/api/games/{id}/abandon` | — | 200 `GameResponse` (`status:"ABANDONED"`) | 404 (partie inconnue), 409 (déjà terminée) |
 | GET  | `/api/games/{id}` | — | 200 `GameResponse` | 404 |
 | GET  | `/api/games` | — | 200 `GameResponse[]` (toutes les parties, tous joueurs — utilisé par la vue admin) | — |
 
@@ -194,8 +195,9 @@ Notes d'implémentation :
    - **Passe 2** : pour chaque position non CORRECT, si la lettre existe encore dans la
      map (`count > 0`) → `PRESENT` et on **décrémente** ; sinon → `ABSENT`.
 4. **Statuts de lettre** : `CORRECT` (bien placée) / `PRESENT` (mal placée) / `ABSENT`.
-   **Statuts de partie** : `IN_PROGRESS` / `WON` / `LOST`.
-   En fin de partie, game-service appelle score-service pour historiser le résultat.
+   **Statuts de partie** : `IN_PROGRESS` / `WON` / `LOST` / `ABANDONED` (abandon volontaire via
+   `POST /api/games/{id}/abandon`, cf. §5.2 — aucun score n'est enregistré dans ce cas).
+   En fin de partie (`WON`/`LOST`), game-service appelle score-service pour historiser le résultat.
 
 Exemple (secret `ALLER`, proposition `LELLE`) : les doublons de `L` sont bornés par le
 nombre réel de `L` restants après la passe 1 — d'où l'intérêt des 2 passes.
@@ -279,9 +281,11 @@ sur deux lignes titre/boutons ; tuiles de grille en taille fluide).
 - **Accueil** : bandeau de tuiles animées + 3 pictogrammes « comment jouer », formulaire de
   connexion/création de joueur, joueurs récents.
 - **Partie** : sélecteur de taille de grille (4–10 lettres ou « Auto ») avant de lancer, bouton
-  « Annuler et changer la taille » pendant une partie en cours (abandon côté client, la partie
-  reste `IN_PROGRESS` en base — aucun endpoint de suppression n'existe côté serveur), grille et
-  clavier à états, modale de statistiques (historique + classement).
+  « Annuler et changer la taille » pendant une partie en cours — appelle
+  `POST /api/games/{id}/abandon` (statut `ABANDONED`, aucun score enregistré) plutôt que de
+  laisser la partie `IN_PROGRESS` indéfiniment. Même abandon déclenché au changement de joueur,
+  et via `navigator.sendBeacon` à la fermeture de l'onglet (filet de sécurité, best-effort).
+  Grille et clavier à états, modale de statistiques (historique + classement).
 - **Règles** : bouton « ? » dans l'en-tête, modale accessible à tout moment.
 - **Admin** : bouton visible par tous dans l'en-tête, mais mène à un écran de connexion par mot
   de passe (`motus-admin`, en dur dans `app.js` — protection **côté client uniquement**, pas de
