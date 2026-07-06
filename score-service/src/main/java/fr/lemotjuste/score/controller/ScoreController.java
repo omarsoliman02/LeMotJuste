@@ -4,6 +4,10 @@ import fr.lemotjuste.score.dto.LeaderboardEntry;
 import fr.lemotjuste.score.dto.RecordScoreRequest;
 import fr.lemotjuste.score.dto.ScoreResponse;
 import fr.lemotjuste.score.service.ScoreService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
@@ -17,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/scores")
+@Tag(name = "Scores", description = "Historique des résultats, statistiques et classement")
 public class ScoreController {
 
     private final ScoreService service;
@@ -26,22 +31,34 @@ public class ScoreController {
     }
 
     @PostMapping
+    @Operation(summary = "Historiser un résultat",
+            description = "Appelé en OpenFeign par game-service en fin de partie. Enregistre "
+                    + "victoire/défaite, nombre d'essais et mot joué.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Résultat enregistré"),
+            @ApiResponse(responseCode = "400", description = "Corps de requête invalide")
+    })
     public ResponseEntity<ScoreResponse> record(@Valid @RequestBody RecordScoreRequest request) {
         ScoreResponse created = service.record(request);
         return ResponseEntity.created(URI.create("/api/scores/" + created.id())).body(created);
     }
 
     @GetMapping(params = "playerId")
+    @Operation(summary = "Historique d'un joueur",
+            description = "Liste les résultats d'un joueur, du plus récent au plus ancien.")
     public List<ScoreResponse> getByPlayer(@RequestParam Long playerId) {
         return service.getByPlayer(playerId);
     }
 
     @GetMapping("/leaderboard")
+    @Operation(summary = "Classement",
+            description = "Classement des joueurs par nombre de victoires et de parties jouées.")
     public List<LeaderboardEntry> leaderboard() {
         return service.leaderboard();
     }
 
     @GetMapping
+    @Operation(summary = "Lister tous les résultats", description = "Tous joueurs confondus (vue admin).")
     public List<ScoreResponse> getAll() {
         return service.getAll();
     }
