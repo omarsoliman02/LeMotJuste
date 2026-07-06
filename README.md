@@ -60,6 +60,26 @@ qu'en fin de partie (`WON`/`LOST`). L'algorithme de calcul lettre par lettre (2 
 doublons) et le dictionnaire sont décrits dans le rapport (`docs/rapport.tex`, §6) et implémentés
 dans `game-service`.
 
+## Documentation interactive de l'API (Swagger / OpenAPI 3)
+
+Chaque microservice génère automatiquement sa spécification **OpenAPI 3** et sert une interface
+**Swagger UI** (via [springdoc-openapi](https://springdoc.org/)), où l'on peut lire chaque endpoint
+et l'essayer directement (« Try it out »). Une fois la stack démarrée (`docker compose up`) :
+
+| Interface | URL |
+|-----------|-----|
+| **Swagger UI agrégée** (les 3 services, via la gateway) | http://localhost:8080/swagger-ui.html |
+| Swagger UI — player-service | http://localhost:8081/swagger-ui.html |
+| Swagger UI — game-service | http://localhost:8082/swagger-ui.html |
+| Swagger UI — score-service | http://localhost:8083/swagger-ui.html |
+| Spécification JSON (ex. player) | http://localhost:8081/v3/api-docs |
+
+La **Swagger UI agrégée** de la gateway propose un menu déroulant *« Select a definition »* pour
+basculer entre `player-service`, `game-service` et `score-service` — un seul point d'entrée, fidèle
+à l'architecture. La gateway relaie le `/v3/api-docs` de chaque service (routes `*-service-docs`
+dans `gateway/src/main/resources/application.yml`). Les Swagger UI par service restent accessibles
+individuellement pour tester chaque API de façon isolée.
+
 ## Démarrage rapide (Docker)
 
 Prérequis : Docker + Docker Compose.
@@ -126,6 +146,7 @@ Maven doit utiliser le JDK 21 (`JAVA_HOME=$(/usr/libexec/java_home -v 21) mvn ..
 
 ## Documentation
 
+- Documentation interactive de l'API (Swagger / OpenAPI) : voir la section ci-dessus — http://localhost:8080/swagger-ui.html
 - Architecture & diagrammes : [`docs/architecture.md`](docs/architecture.md)
 - Guide Kubernetes / MiniKube : [`docs/kubernetes-guide.md`](docs/kubernetes-guide.md)
 - Manifests Kubernetes : [`k8s/README.md`](k8s/README.md)
