@@ -22,6 +22,26 @@ spring:
               uri: ${SCORE_SERVICE_URI:http://localhost:8083}
               predicates:
                 - Path=/api/scores/**
+            # Documentation OpenAPI : la gateway relaie le /v3/api-docs de chaque service
+            # pour alimenter la Swagger UI agrégée (voir le bloc springdoc plus bas).
+            - id: player-service-docs
+              uri: ${PLAYER_SERVICE_URI:http://localhost:8081}
+              predicates:
+                - Path=/player-service/v3/api-docs
+              filters:
+                - RewritePath=/player-service/v3/api-docs, /v3/api-docs
+            - id: game-service-docs
+              uri: ${GAME_SERVICE_URI:http://localhost:8082}
+              predicates:
+                - Path=/game-service/v3/api-docs
+              filters:
+                - RewritePath=/game-service/v3/api-docs, /v3/api-docs
+            - id: score-service-docs
+              uri: ${SCORE_SERVICE_URI:http://localhost:8083}
+              predicates:
+                - Path=/score-service/v3/api-docs
+              filters:
+                - RewritePath=/score-service/v3/api-docs, /v3/api-docs
           # CORS global : le frontend (page statique) n'appelle que la gateway.
           globalcors:
             cors-configurations:
@@ -29,3 +49,17 @@ spring:
                 allowed-origins: "*"
                 allowed-methods: "*"
                 allowed-headers: "*"
+
+# Swagger UI agrégée servie par la gateway : http://localhost:8080/swagger-ui.html
+# Le menu déroulant « Select a definition » liste les 3 microservices, chacun servi
+# via son /v3/api-docs relayé ci-dessus.
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    urls:
+      - name: player-service
+        url: /player-service/v3/api-docs
+      - name: game-service
+        url: /game-service/v3/api-docs
+      - name: score-service
+        url: /score-service/v3/api-docs
