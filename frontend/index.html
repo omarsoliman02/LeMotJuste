@@ -6,12 +6,27 @@
   <title>Le Mot Juste</title>
 
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121213" media="(prefers-color-scheme: dark)">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Le Mot Juste">
+
+  <script>
+    // Applique thème et contraste avant le premier rendu (pas de flash clair/sombre).
+    document.documentElement.dataset.theme =
+      localStorage.getItem("lemotjuste-theme") ||
+      (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    if (localStorage.getItem("lemotjuste-contrast") === "1") {
+      document.documentElement.dataset.contrast = "high";
+    }
+  </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=18">
+  <link rel="stylesheet" href="styles.css?v=20">
 </head>
 <body>
   <div class="app">
@@ -27,6 +42,10 @@
         <button class="header__btn" id="openStats" type="button" hidden>Stats</button>
         <button class="header__btn header__btn--icon" id="openRules" type="button"
                 title="Règles du jeu" aria-label="Règles du jeu">?</button>
+        <button class="header__btn header__btn--icon" id="openSettings" type="button"
+                title="Réglages" aria-label="Réglages">
+          <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.8"/><path d="M19 12a7 7 0 0 0-.09-1.1l2-1.55-2-3.46-2.36.95A7 7 0 0 0 14.6 5.7L14.24 3.2h-4l-.36 2.5a7 7 0 0 0-1.95 1.14l-2.36-.95-2 3.46 2 1.55A7 7 0 0 0 5.48 12c0 .37.03.74.09 1.1l-2 1.55 2 3.46 2.36-.95c.58.48 1.24.87 1.95 1.14l.36 2.5h4l.36-2.5a7 7 0 0 0 1.95-1.14l2.36.95 2-3.46-2-1.55c.06-.36.09-.73.09-1.1Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+        </button>
       </div>
     </header>
 
@@ -80,10 +99,20 @@
         </div>
         <div class="actions" id="actions">
           <button class="btn" id="startBtn" type="button">Commencer la partie</button>
+          <button class="btn btn--outline" id="dailyBtn" type="button">Mot du jour</button>
         </div>
+        <button class="link-btn" id="hintBtn" type="button" hidden></button>
         <button class="link-btn" id="cancelGameBtn" type="button" hidden>
           Annuler et changer la taille de la grille
         </button>
+        <!-- Option mobile : saisie via le clavier natif du téléphone. Le champ invisible
+             reçoit le focus et fait apparaître le clavier du système ; sa valeur reflète
+             le mot en cours (voir app.js). -->
+        <button class="pill-toggle" id="kbToggle" type="button" hidden
+                aria-pressed="false">Clavier du téléphone</button>
+        <input class="native-input" id="nativeInput" type="text"
+               autocomplete="off" autocorrect="off" autocapitalize="characters"
+               spellcheck="false" enterkeyhint="go" aria-hidden="true" tabindex="-1">
         <div class="keyboard" id="keyboard" aria-hidden="true"></div>
       </section>
 
@@ -147,6 +176,16 @@
     <div class="modal__card" role="dialog" aria-modal="true" aria-label="Statistiques">
       <button class="modal__close" data-close type="button" aria-label="Fermer">×</button>
 
+      <h2 class="modal__title">Mes statistiques</h2>
+      <div class="stats-grid" id="statsTiles"></div>
+      <p class="stats-caption">Répartition des essais gagnants</p>
+      <div class="dist" id="distBars"></div>
+      <div class="lenstats" id="lengthStats"></div>
+
+      <h2 class="modal__title">Mot du jour</h2>
+      <ol class="leaderboard" id="dailyList"></ol>
+      <p class="empty" id="dailyEmpty">Personne n'a encore trouvé le mot du jour.</p>
+
       <h2 class="modal__title">Mes parties</h2>
       <ul class="history" id="historyList"></ul>
       <p class="empty" id="historyEmpty">Aucune partie terminée pour le moment.</p>
@@ -154,6 +193,22 @@
       <h2 class="modal__title">Classement</h2>
       <ol class="leaderboard" id="leaderboardList"></ol>
       <p class="empty" id="leaderboardEmpty">Le classement est encore vide.</p>
+    </div>
+  </div>
+
+  <!-- Modale réglages -->
+  <div class="modal" id="settingsModal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__card" role="dialog" aria-modal="true" aria-label="Réglages">
+      <button class="modal__close" data-close type="button" aria-label="Fermer">×</button>
+
+      <h2 class="modal__title">Réglages</h2>
+      <div class="settings">
+        <button class="pill-toggle" id="themeToggle" type="button" aria-pressed="false">Mode sombre</button>
+        <button class="pill-toggle" id="contrastToggle" type="button" aria-pressed="false">Contraste élevé</button>
+      </div>
+      <p class="settings__hint">Le contraste élevé remplace le vert et le jaune par de l'orange
+        et du bleu, plus faciles à distinguer en cas de daltonisme.</p>
     </div>
   </div>
 
@@ -170,6 +225,10 @@
         <li>À chaque proposition, chaque lettre devient <b>verte</b> (bien placée), <b>jaune</b> (mal placée, ailleurs dans le mot) ou <b>grise</b> (absente).</li>
         <li>Le mot proposé doit avoir la bonne longueur et exister dans le dictionnaire, sinon l'essai n'est pas décompté.</li>
         <li>Tu peux choisir la taille de la grille avant de lancer une partie.</li>
+        <li>Chaque victoire rapporte <b>10 points par lettre</b> du mot, plus <b>5 points par essai non utilisé</b>. Le classement se joue aux points.</li>
+        <li>Enchaîne les victoires : chaque victoire consécutive ajoute un <b>bonus de série de +5 points</b> (jusqu'à +25).</li>
+        <li>Bloqué ? Demande un <b>indice</b> (une lettre révélée, 2 max par partie) : chacun coûte <b>15 points</b>.</li>
+        <li>Le <b>mot du jour</b> est le même pour tout le monde, une seule tentative par jour — l'abandonner compte comme ta tentative. Son classement quotidien est dans l'onglet Stats.</li>
       </ol>
       <div class="hero__row hero__row--sm" aria-hidden="true">
         <div class="hero__tile hero__tile--correct">C</div>
@@ -183,6 +242,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="assertive" hidden></div>
 
-  <script src="app.js?v=18"></script>
+  <script src="app.js?v=20"></script>
 </body>
 </html>

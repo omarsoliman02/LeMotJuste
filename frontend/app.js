@@ -21,6 +21,26 @@ const STATUS_TAG_CLASS = { IN_PROGRESS: "tag--progress", WON: "tag--won", LOST: 
 
 const MAX_ATTEMPTS = 6;
 
+// Barème (même formule que côté score-service : Score#points et la requête JPQL du
+// classement) : 10 points par lettre du mot trouvé + 5 par essai non utilisé, 0 si perdu.
+const POINTS_PER_LETTER = 10;
+const POINTS_PER_SPARE_ATTEMPT = 5;
+function pointsFor(won, attempts, wordLength) {
+  return won ? POINTS_PER_LETTER * wordLength + POINTS_PER_SPARE_ATTEMPT * (MAX_ATTEMPTS - attempts) : 0;
+}
+
+// Option « clavier du téléphone » : sur écran tactile, un champ invisible peut recevoir
+// le focus pour faire apparaître le clavier natif, en plus du clavier affiché à l'écran.
+const NATIVE_KB_KEY = "lemotjuste-native-kb";
+const IS_TOUCH = matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
+
+// Thème et contraste : posés sur <html> avant le premier rendu (script inline de
+// index.html) ; les toggles de la modale Réglages les modifient et les persistent.
+const THEME_KEY = "lemotjuste-theme";
+const CONTRAST_KEY = "lemotjuste-contrast";
+
+const HINT_COST = 15; // rappel du barème serveur, pour le libellé du bouton
+
 // Clavier AZERTY. Les mots sont normalisés côté serveur (majuscules, sans accents).
 const KEY_ROWS = [
   ["A", "Z", "E", "R", "T", "Y", "U", "I", "O", "P"],
@@ -46,6 +66,10 @@ const state = {
   revealRow: null,
   busy: false,
   wordLength: null,
+  nativeKb: IS_TOUCH && localStorage.getItem(NATIVE_KB_KEY) === "1",
+  hints: [],        // indices révélés sur la partie en cours : { position, letter }
+  maxHints: 2,      // renvoyé par le serveur à chaque indice
+  myScores: [],     // dernier historique chargé (sert à afficher les points en fin de partie)
 };
 
 const $ = (id) => document.getElementById(id);
@@ -69,8 +93,21 @@ const el = {
   sizeOptions: $("sizeOptions"),
   actions: $("actions"),
   startBtn: $("startBtn"),
+  dailyBtn: $("dailyBtn"),
+  hintBtn: $("hintBtn"),
   keyboard: $("keyboard"),
+  kbToggle: $("kbToggle"),
+  nativeInput: $("nativeInput"),
   statsModal: $("statsModal"),
+  statsTiles: $("statsTiles"),
+  distBars: $("distBars"),
+  lengthStats: $("lengthStats"),
+  dailyList: $("dailyList"),
+  dailyEmpty: $("dailyEmpty"),
+  settingsModal: $("settingsModal"),
+  openSettings: $("openSettings"),
+  themeToggle: $("themeToggle"),
+  contrastToggle: $("contrastToggle"),
   historyList: $("historyList"),
   historyEmpty: $("historyEmpty"),
   leaderboardList: $("leaderboardList"),
@@ -115,7 +152,14 @@ async function api(path, options = {}) {
     throw new ApiError(0, "Service injoignable. La passerelle est-elle lancée ?");
   }
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  // Réponse pas forcément en JSON (page d'erreur du proxy, 502 de la gateway...) :
+  // on ne doit jamais planter sur le parse, juste retomber sur le message générique.
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = null;
+  }
   if (!res.ok) {
     throw new ApiError(res.status, (data && data.message) || "Une erreur est survenue.");
   }
@@ -147,14 +191,27 @@ function renderPlayerChips() {
 }
 
 async function signIn(username) {
-  const existing = state.players.find(
-    (p) => p.username.toLowerCase() === username.toLowerCase()
-  );
+  const findLocal = () =>
+    state.players.find((p) => p.username.toLowerCase() === username.toLowerCase());
+  const existing = findLocal();
   if (existing) return existing;
-  const player = await api("/api/players", {
-    method: "POST",
-    body: JSON.stringify({ username }),
-  });
+  let player;
+  try {
+    player = await api("/api/players", {
+      method: "POST",
+      body: JSON.stringify({ username }),
+    });
+  } catch (e) {
+    // 409 : le nom existe déjà côté serveur alors que notre liste locale est périmée
+    // (joueur créé depuis un autre onglet/appareil). On recharge et on se connecte
+    // avec le compte existant plutôt que de bloquer l'utilisateur sur une erreur.
+    if (e.status === 409) {
+      await loadPlayers();
+      const p = findLocal();
+      if (p) return p;
+    }
+    throw e;
+  }
   // Sans ça, state.players ne connaît pas encore ce joueur tout juste créé : son nom
   // n'apparaîtrait pas dans le classement avant un futur rechargement de la page
   // (repli sur "Joueur {id}" dans loadLeaderboard/loadHistory).
@@ -172,12 +229,14 @@ async function enterAs(player) {
 }
 
 // --- Partie ---
-async function startGame() {
+async function startGame(daily = false) {
   if (state.busy || !state.player) return;
-  setBusy(true, el.startBtn);
+  const button = daily ? el.dailyBtn : el.startBtn;
+  setBusy(true, button);
   try {
     const body = { playerId: state.player.id };
-    if (state.wordLength) body.wordLength = state.wordLength;
+    if (daily) body.daily = true;
+    else if (state.wordLength) body.wordLength = state.wordLength;
     const game = await api("/api/games", {
       method: "POST",
       body: JSON.stringify(body),
@@ -187,16 +246,53 @@ async function startGame() {
     state.keyStates = {};
     state.current = "";
     state.revealRow = null;
+    state.hints = [];
     el.result.hidden = true;
     el.actions.hidden = true;
     el.sizeSelect.hidden = true;
-    el.cancelGameBtn.hidden = false;
+    el.cancelGameBtn.hidden = daily; // le mot du jour ne se « ré-essaie » pas, pas d'annulation
     el.keyboard.setAttribute("aria-hidden", "false");
+    el.kbToggle.hidden = !IS_TOUCH;
+    updateHintButton();
     render();
+    syncNativeInput();
+    focusNativeInput();
+  } catch (e) {
+    // 409 : mot du jour déjà tenté aujourd'hui — le message serveur est explicite.
+    toast(e.message);
+  } finally {
+    setBusy(false, button);
+  }
+}
+
+// --- Indices ---
+function updateHintButton() {
+  if (!isPlaying()) {
+    el.hintBtn.hidden = true;
+    return;
+  }
+  const left = state.maxHints - (state.game.hintsUsed || 0);
+  el.hintBtn.hidden = left <= 0;
+  el.hintBtn.textContent =
+    `Révéler une lettre (−${HINT_COST} pts) · encore ${left}`;
+}
+
+async function requestHint() {
+  if (state.busy || !isPlaying()) return;
+  setBusy(true, el.hintBtn);
+  try {
+    const hint = await api(`/api/games/${state.game.id}/hint`, { method: "POST" });
+    state.hints.push(hint);
+    state.game.hintsUsed = hint.hintsUsed;
+    state.maxHints = hint.maxHints;
+    state.revealRow = null;
+    updateHintButton();
+    renderBoard();
+    toast(`Indice : « ${hint.letter} » en position ${hint.position + 1} (−${HINT_COST} pts).`);
   } catch (e) {
     toast(e.message);
   } finally {
-    setBusy(false, el.startBtn);
+    setBusy(false, el.hintBtn);
   }
 }
 
@@ -262,6 +358,7 @@ async function submitGuess() {
     state.game.status = guess.status;
     updateKeyStates(guess.letters);
     state.current = "";
+    syncNativeInput();
     if (guess.status !== "IN_PROGRESS") state.game.solution = guess.solution;
     render();
     if (guess.status !== "IN_PROGRESS") endGame();
@@ -274,20 +371,35 @@ async function submitGuess() {
   }
 }
 
-function endGame() {
+async function endGame() {
   el.keyboard.setAttribute("aria-hidden", "true");
-  const won = state.game.status === "WON";
-  const used = MAX_ATTEMPTS - state.game.attemptsLeft;
+  el.kbToggle.hidden = true;
+  el.hintBtn.hidden = true;
+  el.nativeInput.blur();
+  const game = state.game;
+  const won = game.status === "WON";
+  const used = MAX_ATTEMPTS - game.attemptsLeft;
   el.result.hidden = false;
   el.result.innerHTML = won
     ? `Bien joué, trouvé en ${used} essai${used > 1 ? "s" : ""}.`
-    : `Raté. Le mot était <b>${escapeHtml(state.game.solution || "")}</b>.`;
-  toast(won ? "Bien joué" : `Le mot était ${state.game.solution}`);
+    : `Raté. Le mot était <b>${escapeHtml(game.solution || "")}</b>.`;
+  toast(won ? "Bien joué" : `Le mot était ${game.solution}`);
   el.actions.hidden = false;
   el.sizeSelect.hidden = false;
   el.cancelGameBtn.hidden = true;
   el.startBtn.textContent = "Rejouer";
-  refreshStats();
+
+  // Les points exacts (bonus de série, malus d'indices compris) sont calculés par
+  // score-service : on les lit dans l'historique fraîchement rechargé. Repli sur le
+  // calcul local de base si le score n'est pas (encore) enregistré.
+  await refreshStats();
+  // Ne complète le message que si le joueur n'a pas déjà relancé une partie entre-temps.
+  if (won && state.game === game) {
+    const recorded = state.myScores.find((s) => s.gameId === game.id);
+    const points = recorded ? recorded.points
+      : pointsFor(true, used, game.wordLength) - HINT_COST * (game.hintsUsed || 0);
+    el.result.innerHTML += ` <b>+${points} points.</b>`;
+  }
 }
 
 function resetGame() {
@@ -296,12 +408,16 @@ function resetGame() {
   state.current = "";
   state.keyStates = {};
   state.revealRow = null;
+  state.hints = [];
+  el.hintBtn.hidden = true;
   el.result.hidden = true;
   el.actions.hidden = false;
   el.sizeSelect.hidden = false;
   el.cancelGameBtn.hidden = true;
   el.startBtn.textContent = "Commencer la partie";
   el.keyboard.setAttribute("aria-hidden", "true");
+  el.kbToggle.hidden = true;
+  el.nativeInput.blur();
   render();
 }
 
@@ -318,10 +434,12 @@ function renderCaption() {
     return;
   }
   if (state.game.status === "IN_PROGRESS") {
+    const prefix = state.game.daily ? "Mot du jour — m" : "M";
     el.caption.textContent =
-      `Mot de ${state.game.wordLength} lettres, première lettre ${state.game.firstLetter}.`;
+      `${prefix}ot de ${state.game.wordLength} lettres, première lettre ${state.game.firstLetter}.`;
   } else {
-    el.caption.textContent = `${state.game.attemptsLeft} essai(s) restant(s) sur cette partie.`;
+    const label = STATUS_LABELS[state.game.status] || "Terminée";
+    el.caption.textContent = `Partie ${label.toLowerCase()}.`;
   }
 }
 
@@ -345,7 +463,13 @@ function buildRow(rowIndex, cols) {
   const guess = state.guesses[rowIndex];
   const active = !guess && isPlaying() && rowIndex === state.guesses.length;
   const reveal = rowIndex === state.revealRow;
-  const ghost = state.game ? state.game.firstLetter : "";
+  // Lettres montrées en filigrane sur la ligne en cours : la première (toujours
+  // révélée) et celles obtenues via les indices.
+  const ghosts = {};
+  if (state.game) {
+    ghosts[0] = state.game.firstLetter;
+    state.hints.forEach((h) => { ghosts[h.position] = h.letter; });
+  }
 
   for (let c = 0; c < cols; c++) {
     const tile = document.createElement("div");
@@ -362,9 +486,8 @@ function buildRow(rowIndex, cols) {
     } else if (active && c < state.current.length) {
       tile.textContent = state.current[c];
       tile.classList.add("tile--filled");
-    } else if (active && c === 0) {
-      // Indice sur la ligne en cours : la première lettre révélée, en gris clair.
-      tile.textContent = ghost;
+    } else if (active && ghosts[c]) {
+      tile.textContent = ghosts[c];
       tile.classList.add("tile--ghost");
     }
     row.appendChild(tile);
@@ -420,26 +543,193 @@ function pressLetter(ch) {
   if (!isPlaying() || state.busy) return;
   if (state.current.length >= state.game.wordLength) return;
   state.current += ch.toUpperCase();
+  // Ne pas rejouer l'animation de révélation de la dernière ligne à chaque frappe.
+  state.revealRow = null;
+  syncNativeInput();
   renderBoard();
 }
 
 function pressBackspace() {
   if (!isPlaying() || state.busy) return;
   state.current = state.current.slice(0, -1);
+  state.revealRow = null;
+  syncNativeInput();
   renderBoard();
 }
 
+/** Ramène une touche à sa lettre A-Z, accents compris (é → E, ç → C) : les mots sont
+ *  normalisés côté serveur, autant accepter la frappe naturelle d'un clavier français. */
+function toBaseLetter(ch) {
+  const up = ch.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+  return /^[A-Z]$/.test(up) ? up : null;
+}
+
 function onKeydown(e) {
-  if (el.play.hidden || !isPlaying() || !el.statsModal.hidden || !el.rulesModal.hidden) return;
+  if (e.key === "Escape") {
+    el.statsModal.hidden = true;
+    el.rulesModal.hidden = true;
+    el.settingsModal.hidden = true;
+    return;
+  }
+  // Les frappes dans le champ invisible sont gérées par ses propres écouteurs.
+  if (e.target === el.nativeInput) return;
+  if (el.play.hidden || !isPlaying()
+      || !el.statsModal.hidden || !el.rulesModal.hidden || !el.settingsModal.hidden) return;
   if (e.key === "Enter") { e.preventDefault(); submitGuess(); }
   else if (e.key === "Backspace") { e.preventDefault(); pressBackspace(); }
-  else if (/^[a-zA-Z]$/.test(e.key)) pressLetter(e.key);
+  else if (e.key.length === 1) {
+    const letter = toBaseLetter(e.key);
+    if (letter) pressLetter(letter);
+  }
+}
+
+// --- Clavier natif du téléphone (option) ---
+function setNativeKb(on) {
+  state.nativeKb = on;
+  localStorage.setItem(NATIVE_KB_KEY, on ? "1" : "0");
+  el.kbToggle.setAttribute("aria-pressed", String(on));
+  el.kbToggle.textContent = on ? "Clavier du téléphone : activé" : "Clavier du téléphone";
+  if (on) focusNativeInput();
+  else el.nativeInput.blur();
+}
+
+/** La valeur du champ invisible reflète toujours le mot en cours, pour que le
+ *  retour arrière du clavier natif ait bien quelque chose à effacer. */
+function syncNativeInput() {
+  el.nativeInput.value = state.current;
+}
+
+function focusNativeInput() {
+  if (!state.nativeKb || !isPlaying()) return;
+  syncNativeInput();
+  el.nativeInput.focus({ preventScroll: true });
+}
+
+function onNativeInput() {
+  if (!isPlaying() || state.busy) {
+    syncNativeInput();
+    return;
+  }
+  const letters = [...el.nativeInput.value].map(toBaseLetter).filter(Boolean);
+  state.current = letters.slice(0, state.game.wordLength).join("");
+  syncNativeInput();
+  state.revealRow = null;
+  renderBoard();
+}
+
+// --- Thème et contraste ---
+function refreshSettingsToggles() {
+  const root = document.documentElement;
+  el.themeToggle.setAttribute("aria-pressed", String(root.dataset.theme === "dark"));
+  el.contrastToggle.setAttribute("aria-pressed", String(root.dataset.contrast === "high"));
+}
+
+function toggleTheme() {
+  const root = document.documentElement;
+  const next = root.dataset.theme === "dark" ? "light" : "dark";
+  root.dataset.theme = next;
+  localStorage.setItem(THEME_KEY, next);
+  refreshSettingsToggles();
+}
+
+function toggleContrast() {
+  const root = document.documentElement;
+  const on = root.dataset.contrast !== "high";
+  if (on) root.dataset.contrast = "high";
+  else delete root.dataset.contrast;
+  localStorage.setItem(CONTRAST_KEY, on ? "1" : "0");
+  refreshSettingsToggles();
 }
 
 // --- Statistiques ---
 async function refreshStats() {
   if (!state.player) return;
-  await Promise.all([loadHistory(), loadLeaderboard()]);
+  await Promise.all([loadHistory(), loadLeaderboard(), loadPlayerStats(), loadDailyBoard()]);
+}
+
+async function loadPlayerStats() {
+  let stats = null;
+  try {
+    stats = await api(`/api/scores/stats?playerId=${state.player.id}`);
+  } catch { stats = null; }
+  const winRate = stats && stats.gamesPlayed
+    ? Math.round((stats.wins / stats.gamesPlayed) * 100) : 0;
+  const tiles = [
+    { value: stats ? stats.totalPoints : 0, label: "Points" },
+    { value: winRate + " %", label: `Victoires (${stats ? stats.wins : 0}/${stats ? stats.gamesPlayed : 0})` },
+    { value: stats ? stats.currentStreak : 0, label: "Série en cours" },
+    { value: stats ? stats.bestStreak : 0, label: "Meilleure série" },
+  ];
+  el.statsTiles.replaceChildren(
+    ...tiles.map(({ value, label }) => {
+      const div = document.createElement("div");
+      div.className = "stat";
+      div.innerHTML =
+        `<div class="stat__value">${value}</div>
+         <div class="stat__label">${label}</div>`;
+      return div;
+    })
+  );
+
+  // Répartition des essais gagnants : barre proportionnelle au max, valeur à droite.
+  const dist = stats ? stats.attemptsDistribution : {};
+  const counts = Array.from({ length: MAX_ATTEMPTS }, (_, i) => Number(dist[i + 1] || 0));
+  const max = Math.max(...counts, 1);
+  const best = Math.max(...counts) > 0 ? counts.indexOf(Math.max(...counts)) : -1;
+  el.distBars.replaceChildren(
+    ...counts.map((count, i) => {
+      const row = document.createElement("div");
+      row.className = "dist__row";
+      const width = count === 0 ? 0 : Math.max(8, Math.round((count / max) * 100));
+      row.innerHTML =
+        `<span class="dist__attempts">${i + 1}</span>
+         <span class="dist__track">
+           <span class="dist__bar${i === best ? " dist__bar--best" : ""}" style="width:${width}%"></span>
+           <span class="dist__count${count === 0 ? " dist__count--zero" : ""}">${count}</span>
+         </span>`;
+      return row;
+    })
+  );
+
+  // Bilan par taille de mot (masqué tant qu'il n'y a rien à montrer).
+  const byLength = (stats && stats.byLength) || [];
+  el.lengthStats.replaceChildren(
+    ...byLength.map((entry) => {
+      const rate = entry.played ? Math.round((entry.wins / entry.played) * 100) : 0;
+      const row = document.createElement("div");
+      row.className = "lenstats__row";
+      row.innerHTML =
+        `<span class="lenstats__label">${entry.wordLength} lettres</span>
+         <span class="lenstats__detail">${entry.wins}/${entry.played} gagnée${entry.wins > 1 ? "s" : ""} · ${rate} %</span>`;
+      return row;
+    })
+  );
+}
+
+async function loadDailyBoard() {
+  let board = [];
+  try {
+    board = await api("/api/scores/daily");
+  } catch { board = []; }
+  if (board.length && state.players.length === 0) await loadPlayers();
+  const names = new Map(state.players.map((p) => [p.id, p.username]));
+  el.dailyEmpty.hidden = board.length > 0;
+  el.dailyList.replaceChildren(
+    ...board.map((s, i) => {
+      const li = document.createElement("li");
+      const me = state.player && s.playerId === state.player.id;
+      li.className = "lb__row" + (me ? " lb__row--me" : "");
+      const name = names.get(s.playerId) || `Joueur ${s.playerId}`;
+      const detail = s.won
+        ? `<b>+${s.points} pts</b> · ${s.attempts} essai${s.attempts > 1 ? "s" : ""}`
+        : "raté";
+      li.innerHTML =
+        `<span class="lb__rank">${i + 1}</span>
+         <span class="lb__name">${escapeHtml(name)}</span>
+         <span class="lb__score">${detail}</span>`;
+      return li;
+    })
+  );
 }
 
 async function loadHistory() {
@@ -447,15 +737,19 @@ async function loadHistory() {
   try {
     scores = await api(`/api/scores?playerId=${state.player.id}`);
   } catch { scores = []; }
+  state.myScores = scores;
   el.historyEmpty.hidden = scores.length > 0;
   el.historyList.replaceChildren(
     ...scores.map((s) => {
       const li = document.createElement("li");
       li.className = "history__item";
+      // `points` arrive du score-service ; repli sur le calcul local si le service
+      // tourne encore dans une version qui ne l'expose pas.
+      const points = s.points ?? pointsFor(s.won, s.attempts, s.word.length);
       const left = document.createElement("div");
       left.innerHTML =
         `<div class="history__word">${escapeHtml(s.word)}</div>
-         <div class="history__meta">${s.attempts} essai${s.attempts > 1 ? "s" : ""}, ${formatDate(s.playedAt)}</div>`;
+         <div class="history__meta">${s.daily ? "Mot du jour · " : ""}${s.attempts} essai${s.attempts > 1 ? "s" : ""}${s.won ? ` · +${points} pts` : ""}, ${formatDate(s.playedAt)}</div>`;
       const tag = document.createElement("span");
       tag.className = "tag " + (s.won ? "tag--won" : "tag--lost");
       tag.textContent = s.won ? "Gagné" : "Perdu";
@@ -482,7 +776,7 @@ async function loadLeaderboard() {
       li.innerHTML =
         `<span class="lb__rank">${i + 1}</span>
          <span class="lb__name">${escapeHtml(name)}</span>
-         <span class="lb__score">${entry.wins} gagnées sur ${entry.gamesPlayed}</span>`;
+         <span class="lb__score"><b>${entry.points ?? 0} pts</b> · ${entry.wins} gagnée${entry.wins > 1 ? "s" : ""} sur ${entry.gamesPlayed}</span>`;
       return li;
     })
   );
@@ -500,6 +794,7 @@ function closeStats() { el.statsModal.hidden = true; }
 function goHome() {
   el.rulesModal.hidden = true;
   el.statsModal.hidden = true;
+  el.settingsModal.hidden = true;
   if (!el.adminLogin.hidden || !el.adminView.hidden) {
     el.adminLogin.hidden = true;
     el.adminView.hidden = true;
@@ -584,10 +879,11 @@ async function loadAdminData() {
 
   renderAdminCards(players, games, scores);
 
-  renderAdminTable(el.adminLeaderboard, ["Rang", "Joueur", "Victoires", "Parties jouées", "Taux de victoire"],
+  renderAdminTable(el.adminLeaderboard, ["Rang", "Joueur", "Points", "Victoires", "Parties jouées", "Taux de victoire"],
     leaderboard.map((entry, i) => [
       i + 1,
       adminData.nameOf(entry.playerId),
+      entry.points ?? 0,
       entry.wins,
       entry.gamesPlayed,
       entry.gamesPlayed ? Math.round((entry.wins / entry.gamesPlayed) * 100) + " %" : "—",
@@ -773,9 +1069,47 @@ function init() {
     renderFilteredAdminTables();
   });
 
-  el.startBtn.addEventListener("click", startGame);
+  el.startBtn.addEventListener("click", () => startGame(false));
+  el.dailyBtn.addEventListener("click", () => startGame(true));
+  el.hintBtn.addEventListener("click", requestHint);
   el.cancelGameBtn.addEventListener("click", cancelGame);
   document.addEventListener("keydown", onKeydown);
+
+  // Réglages : mode sombre et contraste élevé (persistés, appliqués via <html data-*>).
+  el.openSettings.addEventListener("click", () => {
+    refreshSettingsToggles();
+    el.settingsModal.hidden = false;
+  });
+  el.settingsModal.addEventListener("click", (e) => {
+    if (e.target.hasAttribute("data-close")) el.settingsModal.hidden = true;
+  });
+  el.themeToggle.addEventListener("click", toggleTheme);
+  el.contrastToggle.addEventListener("click", toggleContrast);
+
+  // Option « clavier du téléphone » : champ invisible dont la valeur reflète le mot
+  // en cours. On lit le champ après chaque saisie (lettres, accents normalisés,
+  // retour arrière natif) et Entrée valide l'essai.
+  el.kbToggle.addEventListener("click", () => setNativeKb(!state.nativeKb));
+  el.nativeInput.addEventListener("input", onNativeInput);
+  el.nativeInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); submitGuess(); }
+  });
+  // Certains claviers Android n'émettent pas de keydown "Enter" exploitable.
+  el.nativeInput.addEventListener("beforeinput", (e) => {
+    if (e.inputType === "insertLineBreak") { e.preventDefault(); submitGuess(); }
+  });
+  // Toucher une touche du clavier à l'écran ne doit pas voler le focus au champ
+  // (sinon le clavier natif se referme à chaque appui mixte).
+  el.keyboard.addEventListener("pointerdown", (e) => {
+    if (state.nativeKb) e.preventDefault();
+  });
+  // Toucher la grille rouvre le clavier natif s'il a été refermé.
+  el.board.addEventListener("click", focusNativeInput);
+  // Restaure l'état persisté du bouton (libellé + aria-pressed).
+  if (state.nativeKb) {
+    el.kbToggle.setAttribute("aria-pressed", "true");
+    el.kbToggle.textContent = "Clavier du téléphone : activé";
+  }
 
   // Fermeture d'onglet / rechargement pendant une partie : fetch() n'est pas fiable à ce
   // moment-là, sendBeacon si. Filet de sécurité en plus des abandons explicites ci-dessus,
@@ -786,6 +1120,11 @@ function init() {
 
   buildSizeOptions();
   loadPlayers().then(renderPlayerChips);
+
+  // PWA : cache de l'app shell (jamais l'API), voir sw.js. Best-effort.
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
 }
 
 init();

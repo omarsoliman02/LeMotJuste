@@ -1,0 +1,19 @@
+{
+  "name": "Le Mot Juste",
+  "short_name": "Mot Juste",
+  "description": "Motus à la française : devine le mot, tente le mot du jour, grimpe au classement.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1a1a1b",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

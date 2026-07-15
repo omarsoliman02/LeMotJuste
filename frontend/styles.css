@@ -1,19 +1,56 @@
 /* Le Mot Juste : style inspiré de Wordle. */
 
+/* Thème clair (défaut). data-theme est posé sur <html> avant le premier rendu
+   (script inline dans index.html) : clair, sombre, ou le réglage système. */
 :root {
   --green:  #6aaa64;
   --yellow: #c9b458;
   --gray:   #787c7e;
   --tile-border:        #d3d6da;
   --tile-border-filled: #878a8c;
+  --ghost:    #c9c9c9;
   --key-bg:   #d3d6da;
   --key-text: #1a1a1b;
   --text:     #1a1a1b;
   --muted:    #787c7e;
   --line:     #d3d6da;
   --bg:       #ffffff;
+  --card:     #ffffff;
+  --surface:       #f6f6f6;
+  --surface-hover: #f3f3f3;
+  --btn-bg:    #1a1a1b;
+  --btn-text:  #ffffff;
+  --btn-hover: #000000;
 
   --font: "Libre Franklin", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+/* Thème sombre (palette façon Wordle nuit). */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --gray:   #5a5d5e;
+  --tile-border:        #3a3a3c;
+  --tile-border-filled: #565758;
+  --ghost:    #565758;
+  --key-bg:   #818384;
+  --key-text: #f8f8f8;
+  --text:     #f8f8f8;
+  --muted:    #9a9a9c;
+  --line:     #3a3a3c;
+  --bg:       #121213;
+  --card:     #1a1a1b;
+  --surface:       #1e1e20;
+  --surface-hover: #29292b;
+  --btn-bg:    #f8f8f8;
+  --btn-text:  #121213;
+  --btn-hover: #ffffff;
+}
+
+/* Contraste élevé (daltonisme) : orange à la place du vert, bleu à la place du
+   jaune — les deux restent distinguables quel que soit le type de daltonisme. */
+:root[data-contrast="high"] {
+  --green:  #f5793a;
+  --yellow: #85c0f9;
 }
 
 * { box-sizing: border-box; }
@@ -82,7 +119,7 @@ body {
   cursor: pointer;
   white-space: nowrap;
 }
-.header__btn:hover { background: #f3f3f3; }
+.header__btn:hover { background: var(--surface-hover); }
 .header__btn--icon {
   display: inline-grid;
   place-items: center;
@@ -157,7 +194,7 @@ body {
   align-items: center;
   gap: 8px;
   padding: 12px 6px;
-  background: #f6f6f6;
+  background: var(--surface);
   border-radius: 10px;
   /* Empêche le contenu texte de forcer la colonne à s'élargir au-delà de sa part
      de grille (piège classique de CSS Grid/Flexbox sur mobile). */
@@ -168,7 +205,7 @@ body {
   margin: 0;
   font-size: .78rem;
   line-height: 1.3;
-  color: #333;
+  color: var(--text);
 }
 
 .start__form { display: flex; flex-direction: column; gap: 12px; }
@@ -179,6 +216,8 @@ body {
   border: 2px solid var(--tile-border);
   border-radius: 8px;
   text-align: center;
+  background: var(--card);
+  color: var(--text);
 }
 .input:focus { outline: none; border-color: var(--gray); }
 
@@ -186,15 +225,22 @@ body {
   font-family: inherit;
   font-size: 1rem;
   font-weight: 700;
-  color: #fff;
-  background: var(--text);
+  color: var(--btn-text);
+  background: var(--btn-bg);
   border: none;
   border-radius: 8px;
   padding: 14px 22px;
   cursor: pointer;
 }
-.btn:hover { background: #000; }
+.btn:hover { background: var(--btn-hover); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn--outline {
+  color: var(--text);
+  background: none;
+  border: 2px solid var(--text);
+  padding: 12px 20px;
+}
+.btn--outline:hover { background: var(--surface-hover); }
 
 .start__known { margin-top: 28px; }
 .start__known-label {
@@ -211,10 +257,11 @@ body {
   padding: 8px 14px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: #fff;
+  background: var(--card);
+  color: var(--text);
   cursor: pointer;
 }
-.chip:hover { background: #f3f3f3; }
+.chip:hover { background: var(--surface-hover); }
 
 /* Écran de jeu */
 .play {
@@ -223,6 +270,8 @@ body {
   flex-direction: column;
   align-items: center;
   flex: 1;
+  /* Ancre le champ de saisie invisible (.native-input) positionné en absolu. */
+  position: relative;
 }
 .caption {
   font-size: .95rem;
@@ -268,11 +317,11 @@ body {
   text-transform: uppercase;
   border: 2px solid var(--tile-border);
   color: var(--text);
-  background: #fff;
+  background: var(--bg);
   user-select: none;
 }
 .tile--filled { border-color: var(--tile-border-filled); animation: pop .1s; }
-.tile--ghost { color: #c9c9c9; }
+.tile--ghost { color: var(--ghost); }
 
 .tile--correct, .tile--present, .tile--absent {
   color: #fff;
@@ -291,7 +340,14 @@ body {
   margin: 4px 0 0;
 }
 .result b { letter-spacing: .04em; }
-.actions { padding: 12px 0; min-height: 24px; }
+.actions {
+  padding: 12px 0;
+  min-height: 24px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
 .actions[hidden] { display: none; }
 
 /* Sélecteur de taille de grille */
@@ -312,11 +368,56 @@ body {
   padding: 6px 8px;
   border: 1.5px solid var(--line);
   border-radius: 6px;
-  background: #fff;
+  background: var(--card);
+  color: var(--text);
   cursor: pointer;
 }
-.size-select__opt:hover { background: #f3f3f3; }
-.size-select__opt--active { background: var(--text); color: #fff; border-color: var(--text); }
+.size-select__opt:hover { background: var(--surface-hover); }
+.size-select__opt--active { background: var(--btn-bg); color: var(--btn-text); border-color: var(--btn-bg); }
+
+/* Option « clavier du téléphone » : champ invisible qui reçoit le focus pour faire
+   apparaître le clavier natif. Il reste focusable (pas de display:none) mais ne se
+   voit pas et n'intercepte aucun toucher. font-size ≥ 16px, sinon iOS zoome la page
+   au focus. */
+.native-input {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  border: none;
+  padding: 0;
+  font-size: 16px;
+  pointer-events: none;
+}
+
+/* Bouton-interrupteur générique (clavier du téléphone, réglages). */
+.pill-toggle {
+  font-family: inherit;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: none;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  margin-top: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.pill-toggle::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line);
+  flex-shrink: 0;
+}
+.pill-toggle[aria-pressed="true"] { color: var(--text); border-color: var(--text); }
+.pill-toggle[aria-pressed="true"]::before { background: var(--green); }
 
 /* Clavier */
 .keyboard {
@@ -361,7 +462,7 @@ body {
 .modal__backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.5); }
 .modal__card {
   position: relative;
-  background: #fff;
+  background: var(--card);
   width: min(92vw, 460px);
   max-height: 86vh;
   overflow-y: auto;
@@ -385,10 +486,68 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .04em;
-  margin: 0 0 12px;
+  margin: 28px 0 12px;
 }
-.modal__title:nth-of-type(2) { margin-top: 28px; }
+.modal__card .modal__title:first-of-type { margin-top: 0; }
 .empty { color: var(--muted); font-size: .9rem; margin: 0; }
+
+/* Tuiles de statistiques (points, victoires, séries) : grand chiffre + libellé. */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.stat {
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 12px 4px;
+  text-align: center;
+  min-width: 0;
+}
+.stat__value { font-size: 1.5rem; font-weight: 800; }
+.stat__label { font-size: .68rem; color: var(--muted); margin-top: 2px; line-height: 1.25; }
+
+/* Répartition des essais gagnants : barres horizontales, valeur en encre de texte
+   à droite de la barre (jamais dans la couleur de série). */
+.stats-caption {
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+.dist { display: flex; flex-direction: column; gap: 5px; margin-bottom: 18px; }
+.dist__row { display: flex; align-items: center; gap: 8px; }
+.dist__attempts { width: 12px; font-size: .8rem; font-weight: 700; color: var(--muted); text-align: center; }
+.dist__track { flex: 1; display: flex; align-items: center; gap: 6px; }
+.dist__bar {
+  height: 16px;
+  min-width: 4px;
+  border-radius: 4px;
+  background: var(--gray);
+}
+.dist__bar--best { background: var(--green); }
+.dist__count { font-size: .8rem; font-weight: 700; color: var(--text); }
+.dist__count--zero { color: var(--muted); font-weight: 600; }
+
+/* Bilan par taille de mot. */
+.lenstats { display: flex; flex-direction: column; }
+.lenstats__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 4px;
+  border-bottom: 1px solid var(--line);
+  font-size: .85rem;
+}
+.lenstats__row:last-child { border-bottom: none; }
+.lenstats__label { font-weight: 700; }
+.lenstats__detail { color: var(--muted); }
+
+/* Réglages */
+.settings { display: flex; flex-wrap: wrap; gap: 10px; }
+.settings .pill-toggle { margin-top: 0; font-size: .85rem; padding: 9px 14px; }
+.settings__hint { margin: 14px 0 0; font-size: .8rem; color: var(--muted); line-height: 1.4; }
 
 .history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .history__item {
@@ -396,7 +555,7 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  background: #f6f6f6;
+  background: var(--surface);
   border-radius: 8px;
 }
 .history__word { font-weight: 700; letter-spacing: .06em; }
@@ -412,7 +571,7 @@ body {
 .tag--won { background: var(--green); }
 .tag--lost { background: var(--gray); }
 .tag--progress { background: var(--yellow); }
-.tag--abandoned { background: #fff; color: var(--muted); border: 1.5px solid var(--line); }
+.tag--abandoned { background: var(--card); color: var(--muted); border: 1.5px solid var(--line); }
 
 .leaderboard { list-style: none; margin: 0; padding: 0; }
 .lb__row {
@@ -421,7 +580,7 @@ body {
   align-items: center;
   gap: 12px;
   padding: 10px 4px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--line);
 }
 .lb__row:last-child { border-bottom: none; }
 .lb__row--me { font-weight: 700; }
@@ -455,7 +614,7 @@ body {
   width: 100%;
 }
 .admin-login__card {
-  background: #fff;
+  background: var(--card);
   border: 2px solid var(--tile-border);
   border-radius: 12px;
   padding: 32px 26px;
@@ -467,8 +626,8 @@ body {
   margin: 0 auto 16px;
   display: grid;
   place-items: center;
-  background: var(--text);
-  color: #fff;
+  background: var(--btn-bg);
+  color: var(--btn-text);
   border-radius: 999px;
 }
 .admin-login__badge svg { width: 20px; height: 20px; }
@@ -553,6 +712,8 @@ body {
   padding: 6px 8px;
   border: 2px solid var(--tile-border);
   border-radius: 6px;
+  background: var(--card);
+  color: var(--text);
 }
 .admin__filter-hint { margin: 0 0 16px; font-size: .78rem; color: var(--muted); }
 .admin__cards {
@@ -565,7 +726,7 @@ body {
   position: relative;
   overflow: hidden;
   min-width: 0;
-  background: #f6f6f6;
+  background: var(--surface);
   border-radius: 12px;
   padding: 16px 10px;
   text-align: center;
@@ -601,13 +762,13 @@ body {
 .admin__table th, .admin__table td {
   padding: 9px 10px;
   text-align: left;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--line);
   white-space: nowrap;
 }
 .admin__table th { color: var(--muted); font-weight: 700; text-transform: uppercase; font-size: .72rem; }
 .admin__table td.empty { text-align: center; color: var(--muted); white-space: normal; }
 .admin__table tbody tr { animation: admin-row-in .3s ease backwards; }
-.admin__table tbody tr:hover { background: #fafafa; }
+.admin__table tbody tr:hover { background: var(--surface-hover); }
 @keyframes admin-row-in {
   from { opacity: 0; transform: translateX(-6px); }
   to { opacity: 1; transform: translateX(0); }
@@ -619,8 +780,8 @@ body {
   top: 70px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--text);
-  color: #fff;
+  background: var(--btn-bg);
+  color: var(--btn-text);
   font-weight: 600;
   font-size: .92rem;
   padding: 12px 18px;
