@@ -49,10 +49,23 @@ sudo systemctl reload caddy
 ## Mettre à jour après un `git pull`
 
 - Frontend (HTML/CSS/JS) : rien à faire, Caddy le sert en direct depuis le repo.
+  Attention : c'est **instantané en prod** — ne pousser le frontend qu'avec un backend
+  compatible, et bumper ensemble le `?v=` d'`index.html` et le `CACHE` de `sw.js`.
 - Backend (les 4 services Spring) : reconstruire les images dans le démon Docker de
   Minikube (`eval $(minikube docker-env) && docker compose build`), puis
-  `kubectl rollout restart deployment -n lemotjuste`. (En backend Docker Compose :
+  `minikube kubectl -- apply -k k8s/` et, si les images seules ont changé,
+  `minikube kubectl -- rollout restart deployment -n lemotjuste`. Les déploiements
+  sont en 2 réplicas avec rolling update sans coupure. (En backend Docker Compose :
   `docker compose up --build -d`.)
+- **Avant toute migration de schéma** (ddl-auto: update) : sauvegarder les 3 bases —
+  `minikube kubectl -- exec -n lemotjuste deploy/postgres -- pg_dump -U motus --clean --if-exists <db>`
+  pour `motus_players`, `motus_games`, `motus_scores` (dumps existants dans
+  `/home/ubuntu/lemotjuste-backups/`).
+- **Mémoire Minikube** : le conteneur est limité à 12 Go (`docker update --memory=12g
+  --memory-swap=12g minikube`, persistant au stop/start). En dessous (~6 Go), les
+  8 pods JVM + le monitoring font s'effondrer le nœud en page-cache thrash (iowait,
+  apiserver en timeout, gateway en 500). Après un éventuel `minikube delete`,
+  la valeur est reprise de `minikube config` (memory 12288).
 - Si `deploy/Caddyfile` change : `sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
   && sudo systemctl reload caddy`.
 

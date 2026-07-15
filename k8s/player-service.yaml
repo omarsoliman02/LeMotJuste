@@ -5,7 +5,14 @@ metadata:
   labels:
     app: player-service
 spec:
-  replicas: 1
+  replicas: 2
+  # Montée de version sans coupure : on ne retire jamais un pod avant que son
+  # remplaçant soit prêt (readinessProbe).
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: player-service
@@ -37,6 +44,12 @@ spec:
                 secretKeyRef:
                   name: postgres-secret
                   key: POSTGRES_PASSWORD
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 768Mi
           readinessProbe:
             tcpSocket:
               port: 8081

@@ -5,7 +5,14 @@ metadata:
   labels:
     app: gateway
 spec:
-  replicas: 1
+  replicas: 2
+  # Montée de version sans coupure : on ne retire jamais un pod avant que son
+  # remplaçant soit prêt (readinessProbe).
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: gateway
@@ -24,6 +31,12 @@ spec:
           envFrom:
             - configMapRef:
                 name: app-config
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 768Mi
           readinessProbe:
             tcpSocket:
               port: 8080
