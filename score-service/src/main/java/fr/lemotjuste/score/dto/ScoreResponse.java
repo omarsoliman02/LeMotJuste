@@ -11,6 +11,9 @@ public record ScoreResponse(
         boolean won,
         int attempts,
         String word,
+        boolean daily,
+        int hintsUsed,
+        int points,
         Instant playedAt
 ) {
 
@@ -22,6 +25,9 @@ public record ScoreResponse(
                 score.isWon(),
                 score.getAttempts(),
                 score.getWord(),
+                score.isDaily(),
+                score.getHintsUsed(),
+                score.getPoints() == null ? 0 : score.getPoints(),
                 score.getPlayedAt());
     }
 }

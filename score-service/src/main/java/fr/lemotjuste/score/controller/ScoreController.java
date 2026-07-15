@@ -1,6 +1,7 @@
 package fr.lemotjuste.score.controller;
 
 import fr.lemotjuste.score.dto.LeaderboardEntry;
+import fr.lemotjuste.score.dto.PlayerStatsResponse;
 import fr.lemotjuste.score.dto.RecordScoreRequest;
 import fr.lemotjuste.score.dto.ScoreResponse;
 import fr.lemotjuste.score.service.ScoreService;
@@ -52,9 +53,27 @@ public class ScoreController {
 
     @GetMapping("/leaderboard")
     @Operation(summary = "Classement",
-            description = "Classement des joueurs par nombre de victoires et de parties jouées.")
+            description = "Classement des joueurs par points cumulés (barème : 10 par lettre du "
+                    + "mot trouvé + 5 par essai non utilisé, bonus de série, malus d'indice), "
+                    + "départagé par le nombre de victoires puis par le moins de parties jouées.")
     public List<LeaderboardEntry> leaderboard() {
         return service.leaderboard();
+    }
+
+    @GetMapping("/daily")
+    @Operation(summary = "Classement du mot du jour",
+            description = "Les résultats « mot du jour » d'aujourd'hui (heure de Paris), "
+                    + "mieux classés d'abord (points, puis essais, puis heure de fin).")
+    public List<ScoreResponse> daily() {
+        return service.dailyBoard();
+    }
+
+    @GetMapping("/stats")
+    @Operation(summary = "Statistiques d'un joueur",
+            description = "Totaux (parties, victoires, points), séries de victoires en cours et "
+                    + "record, répartition des essais gagnants (1 à 6) et bilan par taille de mot.")
+    public PlayerStatsResponse stats(@RequestParam Long playerId) {
+        return service.stats(playerId);
     }
 
     @GetMapping

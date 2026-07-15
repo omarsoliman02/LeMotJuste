@@ -9,11 +9,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import fr.lemotjuste.score.dto.LeaderboardEntry;
+import fr.lemotjuste.score.dto.PlayerStatsResponse;
 import fr.lemotjuste.score.dto.ScoreResponse;
 import fr.lemotjuste.score.exception.GlobalExceptionHandler;
 import fr.lemotjuste.score.service.ScoreService;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -36,7 +38,7 @@ class ScoreControllerTest {
     @Test
     void recordsScoreAndReturns201() throws Exception {
         given(service.record(any()))
-                .willReturn(new ScoreResponse(1L, 1L, 10L, true, 3, "CHEVAL", Instant.now()));
+                .willReturn(new ScoreResponse(1L, 1L, 10L, true, 3, "CHEVAL", false, 0, 75, Instant.now()));
 
         mvc.perform(post("/api/scores")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -44,7 +46,8 @@ class ScoreControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.playerId").value(1))
-                .andExpect(jsonPath("$.won").value(true));
+                .andExpect(jsonPath("$.won").value(true))
+                .andExpect(jsonPath("$.points").value(75));
     }
 
     @Test
@@ -59,7 +62,7 @@ class ScoreControllerTest {
     @Test
     void returnsPlayerHistory() throws Exception {
         given(service.getByPlayer(1L))
-                .willReturn(List.of(new ScoreResponse(1L, 1L, 10L, true, 3, "CHEVAL", Instant.now())));
+                .willReturn(List.of(new ScoreResponse(1L, 1L, 10L, true, 3, "CHEVAL", false, 0, 75, Instant.now())));
 
         mvc.perform(get("/api/scores").param("playerId", "1"))
                 .andExpect(status().isOk())
@@ -69,11 +72,40 @@ class ScoreControllerTest {
     @Test
     void returnsLeaderboard() throws Exception {
         given(service.leaderboard())
-                .willReturn(List.of(new LeaderboardEntry(1L, 2L, 3L)));
+                .willReturn(List.of(new LeaderboardEntry(1L, 145L, 2L, 3L)));
 
         mvc.perform(get("/api/scores/leaderboard"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].playerId").value(1))
+                .andExpect(jsonPath("$[0].points").value(145))
                 .andExpect(jsonPath("$[0].wins").value(2));
+    }
+
+    @Test
+    void returnsDailyBoard() throws Exception {
+        given(service.dailyBoard())
+                .willReturn(List.of(new ScoreResponse(1L, 2L, 10L, true, 2, "CHEVAL", true, 0, 80, Instant.now())));
+
+        mvc.perform(get("/api/scores/daily"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].playerId").value(2))
+                .andExpect(jsonPath("$[0].daily").value(true))
+                .andExpect(jsonPath("$[0].points").value(80));
+    }
+
+    @Test
+    void returnsPlayerStats() throws Exception {
+        given(service.stats(1L)).willReturn(new PlayerStatsResponse(
+                3, 2, 145, 1, 2,
+                Map.of(3, 1L, 4, 1L),
+                List.of(new PlayerStatsResponse.LengthStats(6, 3, 2))));
+
+        mvc.perform(get("/api/scores/stats").param("playerId", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.gamesPlayed").value(3))
+                .andExpect(jsonPath("$.currentStreak").value(1))
+                .andExpect(jsonPath("$.bestStreak").value(2))
+                .andExpect(jsonPath("$.totalPoints").value(145))
+                .andExpect(jsonPath("$.byLength[0].wordLength").value(6));
     }
 }
