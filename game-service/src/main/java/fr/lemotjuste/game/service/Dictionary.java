@@ -5,8 +5,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import org.springframework.beans.factory.annotation.Value;
@@ -65,6 +67,14 @@ public class Dictionary {
     /** Tire un mot-mystère au hasard (déjà normalisé). */
     public String randomWord() {
         return answers.get(ThreadLocalRandom.current().nextInt(answers.size()));
+    }
+
+    /**
+     * Mot du jour : tirage déterministe par la date (graine = jour époque), donc
+     * identique pour tous les joueurs et toutes les instances du service ce jour-là.
+     */
+    public String dailyWord(LocalDate date) {
+        return answers.get(new Random(date.toEpochDay()).nextInt(answers.size()));
     }
 
     /** Tire un mot-mystère au hasard parmi ceux de la longueur demandée (déjà normalisé). */

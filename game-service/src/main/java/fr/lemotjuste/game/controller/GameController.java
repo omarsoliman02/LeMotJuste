@@ -3,6 +3,7 @@ package fr.lemotjuste.game.controller;
 import fr.lemotjuste.game.dto.GameResponse;
 import fr.lemotjuste.game.dto.GuessRequest;
 import fr.lemotjuste.game.dto.GuessResponse;
+import fr.lemotjuste.game.dto.HintResponse;
 import fr.lemotjuste.game.dto.StartGameRequest;
 import fr.lemotjuste.game.service.GameService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,12 +35,15 @@ public class GameController {
     @PostMapping
     @Operation(summary = "Démarrer une partie",
             description = "Tire un mot mystère pour le joueur donné. `wordLength` (4 à 10) est "
-                    + "optionnel : si absent, la longueur est tirée au hasard. Le mot mystère "
-                    + "n'est jamais exposé tant que la partie est IN_PROGRESS.")
+                    + "optionnel : si absent, la longueur est tirée au hasard. `daily` à true "
+                    + "lance le mot du jour (commun à tous les joueurs, une seule tentative par "
+                    + "jour ; `wordLength` est alors ignoré). Le mot mystère n'est jamais exposé "
+                    + "tant que la partie est IN_PROGRESS.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Partie démarrée"),
             @ApiResponse(responseCode = "400", description = "Longueur demandée invalide"),
-            @ApiResponse(responseCode = "404", description = "Joueur inconnu (vérifié auprès du player-service)")
+            @ApiResponse(responseCode = "404", description = "Joueur inconnu (vérifié auprès du player-service)"),
+            @ApiResponse(responseCode = "409", description = "Mot du jour déjà tenté aujourd'hui")
     })
     public ResponseEntity<GameResponse> start(@Valid @RequestBody StartGameRequest request) {
         GameResponse created = service.start(request);
@@ -74,6 +78,21 @@ public class GameController {
     })
     public GuessResponse guess(@PathVariable Long id, @Valid @RequestBody GuessRequest request) {
         return service.guess(id, request);
+    }
+
+    @PostMapping("/{id}/hint")
+    @Operation(summary = "Demander un indice",
+            description = "Révèle une lettre du mot mystère (jamais la première, déjà connue). "
+                    + "Limité par partie (2 par défaut) ; chaque indice retire des points au "
+                    + "score final.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Indice révélé"),
+            @ApiResponse(responseCode = "400", description = "Plus d'indice disponible"),
+            @ApiResponse(responseCode = "404", description = "Partie introuvable"),
+            @ApiResponse(responseCode = "409", description = "Partie déjà terminée")
+    })
+    public HintResponse hint(@PathVariable Long id) {
+        return service.hint(id);
     }
 
     @PostMapping("/{id}/abandon")

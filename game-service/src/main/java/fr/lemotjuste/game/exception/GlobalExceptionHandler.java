@@ -22,8 +22,8 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
-    @ExceptionHandler(GameAlreadyFinishedException.class)
-    public ResponseEntity<ApiError> handleConflict(GameAlreadyFinishedException ex) {
+    @ExceptionHandler({GameAlreadyFinishedException.class, DailyAlreadyPlayedException.class})
+    public ResponseEntity<ApiError> handleConflict(RuntimeException ex) {
         return build(HttpStatus.CONFLICT, ex.getMessage());
     }
 

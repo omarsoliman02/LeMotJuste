@@ -12,6 +12,8 @@ public record GameResponse(
         String firstLetter,
         int attemptsLeft,
         GameStatus status,
+        boolean daily,
+        int hintsUsed,
         Instant createdAt
 ) {
 
@@ -24,6 +26,8 @@ public record GameResponse(
                 String.valueOf(secret.charAt(0)),
                 game.getAttemptsLeft(),
                 game.getStatus(),
+                game.isDaily(),
+                game.getHintsUsed(),
                 game.getCreatedAt()
         );
     }

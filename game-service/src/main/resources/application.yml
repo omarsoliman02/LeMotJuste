@@ -24,6 +24,8 @@ score-service:
 # Paramètres du jeu Motus.
 game:
   max-attempts: 6
+  # Indices par partie (chacun coûte des points, barème dans score-service).
+  max-hints: 2
   dictionary-path: dictionnaire.txt
   accepted-words-path: mots-valides.txt
   min-word-length: 4

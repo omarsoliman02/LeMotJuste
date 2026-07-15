@@ -7,6 +7,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
@@ -15,7 +16,11 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "games")
+// Index pour la vérification « mot du jour déjà tenté aujourd'hui ? », exécutée à
+// chaque démarrage de partie quotidienne. Créé par Hibernate (ddl-auto: update).
+@Table(name = "games", indexes = {
+        @Index(name = "idx_games_player_daily_created", columnList = "player_id, daily, created_at")
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -41,6 +46,14 @@ public class Game {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, columnDefinition = "varchar(20)")
     private GameStatus status;
+
+    /** Partie « mot du jour » (mot commun à tous, une seule tentative par joueur et par jour). */
+    @Column(nullable = false, columnDefinition = "boolean default false not null")
+    private boolean daily;
+
+    /** Nombre d'indices déjà révélés (plafonné par game.max-hints, malus de points au score). */
+    @Column(name = "hints_used", nullable = false, columnDefinition = "integer default 0 not null")
+    private int hintsUsed;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

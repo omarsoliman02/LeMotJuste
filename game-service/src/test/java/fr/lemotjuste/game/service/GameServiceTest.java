@@ -13,9 +13,11 @@ import fr.lemotjuste.game.client.ScoreClient;
 import fr.lemotjuste.game.dto.GameResponse;
 import fr.lemotjuste.game.dto.GuessRequest;
 import fr.lemotjuste.game.dto.GuessResponse;
+import fr.lemotjuste.game.dto.HintResponse;
 import fr.lemotjuste.game.entity.Game;
 import fr.lemotjuste.game.entity.GameStatus;
 import fr.lemotjuste.game.entity.LetterStatus;
+import fr.lemotjuste.game.exception.DailyAlreadyPlayedException;
 import fr.lemotjuste.game.exception.GameAlreadyFinishedException;
 import fr.lemotjuste.game.exception.InvalidGuessException;
 import fr.lemotjuste.game.repository.GameRepository;
@@ -42,7 +44,7 @@ class GameServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new GameService(repository, dictionary, playerClient, scoreClient, 6);
+        service = new GameService(repository, dictionary, playerClient, scoreClient, 6, 2);
     }
 
     @Test
@@ -82,6 +84,70 @@ class GameServiceTest {
 
         assertThatThrownBy(() -> service.start(new fr.lemotjuste.game.dto.StartGameRequest(1L, 20)))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void startDailyUsesTheDailyWordAndMarksTheGame() {
+        given(playerClient.getById(1L)).willReturn(new PlayerSummary(1L, "alice"));
+        given(repository.existsByPlayerIdAndDailyTrueAndCreatedAtGreaterThanEqual(
+                org.mockito.ArgumentMatchers.eq(1L), any())).willReturn(false);
+        given(dictionary.dailyWord(any())).willReturn("SOLEIL");
+        given(repository.save(any(Game.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+        GameResponse response = service.start(
+                new fr.lemotjuste.game.dto.StartGameRequest(1L, null, true));
+
+        assertThat(response.daily()).isTrue();
+        assertThat(response.firstLetter()).isEqualTo("S");
+        verify(dictionary).dailyWord(any());
+    }
+
+    @Test
+    void startDailyTwiceTheSameDayIsRejected() {
+        given(playerClient.getById(1L)).willReturn(new PlayerSummary(1L, "alice"));
+        given(repository.existsByPlayerIdAndDailyTrueAndCreatedAtGreaterThanEqual(
+                org.mockito.ArgumentMatchers.eq(1L), any())).willReturn(true);
+
+        assertThatThrownBy(() -> service.start(
+                new fr.lemotjuste.game.dto.StartGameRequest(1L, null, true)))
+                .isInstanceOf(DailyAlreadyPlayedException.class);
+    }
+
+    @Test
+    void hintRevealsALetterAtItsPositionAndNeverTheFirstOne() {
+        Game game = new Game(1L, "MAISON", 6);
+        game.setId(10L);
+        given(repository.findById(10L)).willReturn(Optional.of(game));
+
+        HintResponse first = service.hint(10L);
+        HintResponse second = service.hint(10L);
+
+        assertThat(first.position()).isBetween(1, 5);
+        assertThat(first.letter()).isEqualTo(String.valueOf("MAISON".charAt(first.position())));
+        assertThat(second.position()).isNotEqualTo(first.position());
+        assertThat(game.getHintsUsed()).isEqualTo(2);
+        assertThat(second.maxHints()).isEqualTo(2);
+    }
+
+    @Test
+    void hintBeyondTheCapIsRejected() {
+        Game game = new Game(1L, "MAISON", 6);
+        game.setId(10L);
+        game.setHintsUsed(2);
+        given(repository.findById(10L)).willReturn(Optional.of(game));
+
+        assertThatThrownBy(() -> service.hint(10L))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void hintOnFinishedGameIsRejected() {
+        Game game = new Game(1L, "MAISON", 6);
+        game.setStatus(GameStatus.WON);
+        given(repository.findById(10L)).willReturn(Optional.of(game));
+
+        assertThatThrownBy(() -> service.hint(10L))
+                .isInstanceOf(GameAlreadyFinishedException.class);
     }
 
     @Test
