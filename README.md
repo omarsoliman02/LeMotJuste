@@ -48,12 +48,19 @@ Les erreurs répondent dans un format JSON homogène (`{ timestamp, status, erro
 |---------|--------|------|
 | POST | `/api/players` | créer un joueur (`{username}`) — 201, 409 si déjà pris |
 | GET | `/api/players/{id}` · `?username=` · (liste) | lire un / des joueurs |
-| POST | `/api/games` | démarrer une partie (`{playerId, wordLength?}`, taille 4–10 ou auto) |
+| POST | `/api/games` | démarrer une partie (`{playerId, wordLength?, daily?}`, taille 4–10 ou auto ; `daily: true` = mot du jour, une tentative par jour — 409 sinon) |
 | POST | `/api/games/{id}/guess` | proposer un mot (`{word}`) — 400 si longueur/hors dico (essai non décompté), 409 si terminée |
+| POST | `/api/games/{id}/hint` | révéler une lettre du mot (2 max/partie, −15 points chacune au score) |
 | POST | `/api/games/{id}/abandon` | abandonner une partie en cours (statut `ABANDONED`, aucun score) |
 | GET | `/api/games/{id}` · `/api/games` | état d'une partie (sans le mot mystère) / toutes les parties (admin) |
-| POST | `/api/scores` | historiser un résultat — appelé en Feign par game-service |
-| GET | `/api/scores?playerId=` · `/api/scores/leaderboard` · `/api/scores` | historique / classement / liste (admin) |
+| POST | `/api/scores` | historiser un résultat — appelé en Feign par game-service (`{playerId, gameId, won, attempts, word, daily?, hintsUsed?}`) |
+| GET | `/api/scores?playerId=` · `/api/scores/leaderboard` · `/api/scores` | historique / classement (aux points) / liste (admin) |
+| GET | `/api/scores/daily` · `/api/scores/stats?playerId=` | classement du mot du jour / statistiques d'un joueur (séries, répartition des essais, bilan par taille) |
+
+**Barème des points** (calculé et stocké par score-service à l'enregistrement) : victoire =
+10 points par lettre + 5 par essai non utilisé, bonus de série de +5 par victoire consécutive
+(plafonné à +25), malus de −15 par indice ; jamais négatif, défaite = 0. Le classement général
+se fait aux points cumulés.
 
 Le **mot mystère n'est jamais exposé** tant que la partie est `IN_PROGRESS` ; la solution n'apparaît
 qu'en fin de partie (`WON`/`LOST`). L'algorithme de calcul lettre par lettre (2 passes, gestion des
