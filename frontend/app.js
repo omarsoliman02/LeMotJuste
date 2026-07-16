@@ -71,6 +71,7 @@ const state = {
   hints: [],        // indices révélés sur la partie en cours : { position, letter }
   maxHints: 2,      // renvoyé par le serveur à chaque indice
   myScores: [],     // dernier historique chargé (sert à afficher les points en fin de partie)
+  totalPoints: 0,   // points cumulés du joueur (seuil requis pour s'offrir un indice)
 };
 
 const $ = (id) => document.getElementById(id);
@@ -268,19 +269,38 @@ async function startGame(daily = false) {
 }
 
 // --- Indices ---
+/** Un indice coûte HINT_COST points : il faut donc en avoir au moins autant. Un joueur
+ *  qui n'a jamais marqué (0 point) ne peut pas encore s'en offrir — il doit d'abord
+ *  gagner une partie. */
+function canAffordHint() {
+  return (state.totalPoints || 0) >= HINT_COST;
+}
+
 function updateHintButton() {
   if (!isPlaying()) {
     el.hintBtn.hidden = true;
     return;
   }
   const left = state.maxHints - (state.game.hintsUsed || 0);
-  el.hintBtn.hidden = left <= 0;
-  el.hintBtn.textContent =
-    `Révéler une lettre (−${HINT_COST} pts) · encore ${left}`;
+  if (left <= 0) {
+    el.hintBtn.hidden = true;
+    return;
+  }
+  el.hintBtn.hidden = false;
+  const affordable = canAffordHint();
+  el.hintBtn.disabled = !affordable;
+  el.hintBtn.textContent = affordable
+    ? `Révéler une lettre (−${HINT_COST} pts) · encore ${left}`
+    : `Indice : ${HINT_COST} points requis (gagne une partie d'abord)`;
 }
 
 async function requestHint() {
   if (state.busy || !isPlaying()) return;
+  // Garde-fou : pas assez de points cumulés pour couvrir le coût de l'indice.
+  if (!canAffordHint()) {
+    toast(`Il te faut au moins ${HINT_COST} points pour un indice — gagne une partie d'abord.`);
+    return;
+  }
   setBusy(true, el.hintBtn);
   try {
     const hint = await api(`/api/games/${state.game.id}/hint`, { method: "POST" });
@@ -431,7 +451,7 @@ async function endGame() {
   if (won && state.game === game) {
     const recorded = state.myScores.find((s) => s.gameId === game.id);
     const points = recorded ? recorded.points
-      : pointsFor(true, used, game.wordLength) - HINT_COST * (game.hintsUsed || 0);
+      : Math.max(0, pointsFor(true, used, game.wordLength) - HINT_COST * (game.hintsUsed || 0));
     el.result.innerHTML += ` <b>+${points} points.</b>`;
   }
 }
@@ -729,6 +749,9 @@ async function loadPlayerStats() {
   try {
     stats = await api(`/api/scores/stats?playerId=${state.player.id}`);
   } catch { stats = null; }
+  // Sert de « solde » pour autoriser (ou non) un indice sur la partie suivante.
+  state.totalPoints = stats && typeof stats.totalPoints === "number" ? stats.totalPoints : 0;
+  updateHintButton();
   const winRate = stats && stats.gamesPlayed
     ? Math.round((stats.wins / stats.gamesPlayed) * 100) : 0;
   const tiles = [

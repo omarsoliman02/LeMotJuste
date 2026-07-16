@@ -639,6 +639,12 @@ body {
   text-underline-offset: 2px;
 }
 .link-btn:hover { color: var(--text); }
+.link-btn:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+.link-btn:disabled:hover { color: var(--muted); }
 
 /* Écran de connexion admin */
 .admin-login {
