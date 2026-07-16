@@ -741,7 +741,14 @@ function toggleContrast() {
 async function refreshStats() {
   if (!state.player) return;
   await Promise.all([loadHistory(), loadLeaderboard(), loadPlayerStats(), loadDailyBoard()]);
+  // Filet : si /stats est momentanément indisponible, on estime le solde de points
+  // depuis l'historique déjà chargé — pour ne pas bloquer l'indice sur un hoquet.
+  if (!(state.totalPoints > 0) && (state.myScores || []).length) {
+    state.totalPoints = state.myScores.reduce(
+      (sum, s) => sum + (s.points ?? pointsFor(s.won, s.attempts, s.word.length)), 0);
+  }
   updateDailyButton();
+  updateHintButton();
 }
 
 async function loadPlayerStats() {
@@ -1089,7 +1096,8 @@ function toast(message) {
   void el.toast.offsetWidth;
   el.toast.style.animation = "";
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.toast.hidden = true; }, 2200);
+  // Durée d'affichage assez longue pour laisser le temps de lire le message.
+  toastTimer = setTimeout(() => { el.toast.hidden = true; }, 5000);
 }
 
 function formatDate(iso) {
