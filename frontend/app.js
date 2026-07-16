@@ -61,7 +61,8 @@ const state = {
   players: [],
   game: null,
   guesses: [],
-  current: "",
+  cells: [],        // lettres saisies par position sur la ligne en cours (longueur = wordLength)
+  locked: [],       // positions verrouillées par une lettre révélée (indice)
   keyStates: {},
   revealRow: null,
   busy: false,
@@ -70,6 +71,7 @@ const state = {
   hints: [],        // indices révélés sur la partie en cours : { position, letter }
   maxHints: 2,      // renvoyé par le serveur à chaque indice
   myScores: [],     // dernier historique chargé (sert à afficher les points en fin de partie)
+  totalPoints: 0,   // points cumulés du joueur (seuil requis pour s'offrir un indice)
 };
 
 const $ = (id) => document.getElementById(id);
@@ -244,9 +246,10 @@ async function startGame(daily = false) {
     state.game = game;
     state.guesses = [];
     state.keyStates = {};
-    state.current = "";
     state.revealRow = null;
     state.hints = [];
+    newRow();
+    if (daily) markDailyPlayed();
     el.result.hidden = true;
     el.actions.hidden = true;
     el.sizeSelect.hidden = true;
@@ -255,10 +258,10 @@ async function startGame(daily = false) {
     el.kbToggle.hidden = !IS_TOUCH;
     updateHintButton();
     render();
-    syncNativeInput();
     focusNativeInput();
   } catch (e) {
-    // 409 : mot du jour déjà tenté aujourd'hui — le message serveur est explicite.
+    // 409 : mot du jour déjà tenté aujourd'hui — on masque le bouton et on informe.
+    if (daily && e.status === 409) { markDailyPlayed(); updateDailyButton(); }
     toast(e.message);
   } finally {
     setBusy(false, button);
@@ -266,34 +269,85 @@ async function startGame(daily = false) {
 }
 
 // --- Indices ---
+/** Un indice coûte HINT_COST points : il faut donc en avoir au moins autant. Un joueur
+ *  qui n'a jamais marqué (0 point) ne peut pas encore s'en offrir — il doit d'abord
+ *  gagner une partie. */
+function canAffordHint() {
+  return (state.totalPoints || 0) >= HINT_COST;
+}
+
 function updateHintButton() {
   if (!isPlaying()) {
     el.hintBtn.hidden = true;
     return;
   }
   const left = state.maxHints - (state.game.hintsUsed || 0);
-  el.hintBtn.hidden = left <= 0;
-  el.hintBtn.textContent =
-    `Révéler une lettre (−${HINT_COST} pts) · encore ${left}`;
+  if (left <= 0) {
+    el.hintBtn.hidden = true;
+    return;
+  }
+  el.hintBtn.hidden = false;
+  const affordable = canAffordHint();
+  el.hintBtn.disabled = !affordable;
+  el.hintBtn.textContent = affordable
+    ? `Révéler une lettre (−${HINT_COST} pts) · encore ${left}`
+    : `Indice : ${HINT_COST} points requis (gagne une partie d'abord)`;
 }
 
 async function requestHint() {
   if (state.busy || !isPlaying()) return;
+  // Garde-fou : pas assez de points cumulés pour couvrir le coût de l'indice.
+  if (!canAffordHint()) {
+    toast(`Il te faut au moins ${HINT_COST} points pour un indice — gagne une partie d'abord.`);
+    return;
+  }
   setBusy(true, el.hintBtn);
   try {
     const hint = await api(`/api/games/${state.game.id}/hint`, { method: "POST" });
     state.hints.push(hint);
     state.game.hintsUsed = hint.hintsUsed;
     state.maxHints = hint.maxHints;
+    // La position est choisie par le SERVEUR (déterministe, indépendante de ce que le
+    // joueur a déjà tapé) : impossible pour lui de « viser » une case en remplissant le
+    // reste. On place la lettre révélée et on VERROUILLE la case : l'affichage et le mot
+    // soumis restent ainsi toujours cohérents, et le joueur ne peut pas l'effacer.
+    if (hint.position >= 0 && hint.position < state.cells.length) {
+      state.cells[hint.position] = hint.letter;
+      state.locked[hint.position] = true;
+    }
     state.revealRow = null;
     updateHintButton();
+    syncNativeInput();
     renderBoard();
-    toast(`Indice : « ${hint.letter} » en position ${hint.position + 1} (−${HINT_COST} pts).`);
+    toast(`Lettre « ${hint.letter} » placée en position ${hint.position + 1} (−${HINT_COST} pts).`);
   } catch (e) {
     toast(e.message);
   } finally {
     setBusy(false, el.hintBtn);
   }
+}
+
+// --- Mot du jour : une seule fois par jour et par joueur ---
+function localDayKey(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function dailyStorageKey() {
+  return `lemotjuste-daily-${state.player ? state.player.id : "anon"}-${localDayKey()}`;
+}
+function markDailyPlayed() {
+  if (state.player) localStorage.setItem(dailyStorageKey(), "1");
+}
+/** Le joueur a-t-il déjà lancé le mot du jour aujourd'hui ? On combine un drapeau local
+ *  (couvre l'abandon, non historisé) et l'historique des scores (couvre les autres appareils). */
+function playedDailyToday() {
+  if (!state.player) return false;
+  if (localStorage.getItem(dailyStorageKey()) === "1") return true;
+  const today = localDayKey();
+  return (state.myScores || []).some((s) => s.daily && localDayKey(new Date(s.playedAt)) === today);
+}
+/** Masque le bouton « Mot du jour » une fois joué : il ne réapparaîtra que le lendemain. */
+function updateDailyButton() {
+  el.dailyBtn.hidden = playedDailyToday();
 }
 
 /** Abandonne la partie en cours (côté serveur aussi, pour ne pas la laisser IN_PROGRESS
@@ -340,12 +394,12 @@ function isPlaying() {
 
 async function submitGuess() {
   if (state.busy || !isPlaying()) return;
-  const word = state.current;
-  if (word.length !== state.game.wordLength) {
+  if (state.cells.some((c) => c === "")) {
     toast(`Il faut un mot de ${state.game.wordLength} lettres.`);
     shakeActiveRow();
     return;
   }
+  const word = state.cells.join("");
   setBusy(true);
   try {
     const guess = await api(`/api/games/${state.game.id}/guess`, {
@@ -357,8 +411,7 @@ async function submitGuess() {
     state.game.attemptsLeft = guess.attemptsLeft;
     state.game.status = guess.status;
     updateKeyStates(guess.letters);
-    state.current = "";
-    syncNativeInput();
+    newRow();
     if (guess.status !== "IN_PROGRESS") state.game.solution = guess.solution;
     render();
     if (guess.status !== "IN_PROGRESS") endGame();
@@ -388,6 +441,7 @@ async function endGame() {
   el.sizeSelect.hidden = false;
   el.cancelGameBtn.hidden = true;
   el.startBtn.textContent = "Rejouer";
+  updateDailyButton(); // partie du jour terminée => le bouton reste masqué pour aujourd'hui
 
   // Les points exacts (bonus de série, malus d'indices compris) sont calculés par
   // score-service : on les lit dans l'historique fraîchement rechargé. Repli sur le
@@ -397,7 +451,7 @@ async function endGame() {
   if (won && state.game === game) {
     const recorded = state.myScores.find((s) => s.gameId === game.id);
     const points = recorded ? recorded.points
-      : pointsFor(true, used, game.wordLength) - HINT_COST * (game.hintsUsed || 0);
+      : Math.max(0, pointsFor(true, used, game.wordLength) - HINT_COST * (game.hintsUsed || 0));
     el.result.innerHTML += ` <b>+${points} points.</b>`;
   }
 }
@@ -405,7 +459,8 @@ async function endGame() {
 function resetGame() {
   state.game = null;
   state.guesses = [];
-  state.current = "";
+  state.cells = [];
+  state.locked = [];
   state.keyStates = {};
   state.revealRow = null;
   state.hints = [];
@@ -418,7 +473,23 @@ function resetGame() {
   el.keyboard.setAttribute("aria-hidden", "true");
   el.kbToggle.hidden = true;
   el.nativeInput.blur();
+  updateDailyButton();
   render();
+}
+
+/** (Ré)initialise la ligne de saisie courante : cases vides puis (ré)application des
+ *  lettres révélées par indice (verrouillées). Appelée au début de chaque essai. */
+function newRow() {
+  const len = state.game ? state.game.wordLength : 0;
+  state.cells = Array(len).fill("");
+  state.locked = Array(len).fill(false);
+  state.hints.forEach((h) => {
+    if (h.position >= 0 && h.position < len) {
+      state.cells[h.position] = h.letter;
+      state.locked[h.position] = true;
+    }
+  });
+  syncNativeInput();
 }
 
 // --- Rendu ---
@@ -463,13 +534,6 @@ function buildRow(rowIndex, cols) {
   const guess = state.guesses[rowIndex];
   const active = !guess && isPlaying() && rowIndex === state.guesses.length;
   const reveal = rowIndex === state.revealRow;
-  // Lettres montrées en filigrane sur la ligne en cours : la première (toujours
-  // révélée) et celles obtenues via les indices.
-  const ghosts = {};
-  if (state.game) {
-    ghosts[0] = state.game.firstLetter;
-    state.hints.forEach((h) => { ghosts[h.position] = h.letter; });
-  }
 
   for (let c = 0; c < cols; c++) {
     const tile = document.createElement("div");
@@ -483,11 +547,16 @@ function buildRow(rowIndex, cols) {
         tile.classList.add("tile--reveal");
         tile.style.animationDelay = `${c * 0.18}s`;
       }
-    } else if (active && c < state.current.length) {
-      tile.textContent = state.current[c];
+    } else if (active && state.locked[c]) {
+      // Lettre révélée par un indice : placée et verrouillée.
+      tile.textContent = state.cells[c];
+      tile.classList.add("tile--hint");
+    } else if (active && state.cells[c]) {
+      tile.textContent = state.cells[c];
       tile.classList.add("tile--filled");
-    } else if (active && ghosts[c]) {
-      tile.textContent = ghosts[c];
+    } else if (active && c === 0 && state.game.firstLetter) {
+      // Première lettre, toujours connue : filigrane tant qu'elle n'est pas saisie.
+      tile.textContent = state.game.firstLetter;
       tile.classList.add("tile--ghost");
     }
     row.appendChild(tile);
@@ -539,10 +608,19 @@ function updateKeyStates(letters) {
   }
 }
 
+/** Première case libre (ni remplie, ni verrouillée par un indice). */
+function firstEmptyCell() {
+  for (let i = 0; i < state.cells.length; i++) {
+    if (!state.locked[i] && state.cells[i] === "") return i;
+  }
+  return -1;
+}
+
 function pressLetter(ch) {
   if (!isPlaying() || state.busy) return;
-  if (state.current.length >= state.game.wordLength) return;
-  state.current += ch.toUpperCase();
+  const i = firstEmptyCell();
+  if (i === -1) return; // ligne pleine
+  state.cells[i] = ch.toUpperCase();
   // Ne pas rejouer l'animation de révélation de la dernière ligne à chaque frappe.
   state.revealRow = null;
   syncNativeInput();
@@ -551,7 +629,10 @@ function pressLetter(ch) {
 
 function pressBackspace() {
   if (!isPlaying() || state.busy) return;
-  state.current = state.current.slice(0, -1);
+  // Efface la dernière lettre saisie, sans jamais toucher une case verrouillée (indice).
+  for (let i = state.cells.length - 1; i >= 0; i--) {
+    if (!state.locked[i] && state.cells[i] !== "") { state.cells[i] = ""; break; }
+  }
   state.revealRow = null;
   syncNativeInput();
   renderBoard();
@@ -593,10 +674,20 @@ function setNativeKb(on) {
   else el.nativeInput.blur();
 }
 
-/** La valeur du champ invisible reflète toujours le mot en cours, pour que le
+/** Lettres réellement saisies par le joueur (hors cases verrouillées par un indice),
+ *  dans l'ordre : c'est ce que reflète le champ invisible du clavier natif. */
+function typedLetters() {
+  let s = "";
+  for (let i = 0; i < state.cells.length; i++) {
+    if (!state.locked[i] && state.cells[i]) s += state.cells[i];
+  }
+  return s;
+}
+
+/** La valeur du champ invisible reflète toujours les lettres saisies, pour que le
  *  retour arrière du clavier natif ait bien quelque chose à effacer. */
 function syncNativeInput() {
-  el.nativeInput.value = state.current;
+  el.nativeInput.value = typedLetters();
 }
 
 function focusNativeInput() {
@@ -610,8 +701,13 @@ function onNativeInput() {
     syncNativeInput();
     return;
   }
-  const letters = [...el.nativeInput.value].map(toBaseLetter).filter(Boolean);
-  state.current = letters.slice(0, state.game.wordLength).join("");
+  // On répartit les lettres saisies dans les cases NON verrouillées, de gauche à droite.
+  const typed = [...el.nativeInput.value].map(toBaseLetter).filter(Boolean);
+  let ti = 0;
+  for (let i = 0; i < state.cells.length; i++) {
+    if (state.locked[i]) continue;
+    state.cells[i] = ti < typed.length ? typed[ti++] : "";
+  }
   syncNativeInput();
   state.revealRow = null;
   renderBoard();
@@ -645,6 +741,14 @@ function toggleContrast() {
 async function refreshStats() {
   if (!state.player) return;
   await Promise.all([loadHistory(), loadLeaderboard(), loadPlayerStats(), loadDailyBoard()]);
+  // Filet : si /stats est momentanément indisponible, on estime le solde de points
+  // depuis l'historique déjà chargé — pour ne pas bloquer l'indice sur un hoquet.
+  if (!(state.totalPoints > 0) && (state.myScores || []).length) {
+    state.totalPoints = state.myScores.reduce(
+      (sum, s) => sum + (s.points ?? pointsFor(s.won, s.attempts, s.word.length)), 0);
+  }
+  updateDailyButton();
+  updateHintButton();
 }
 
 async function loadPlayerStats() {
@@ -652,6 +756,9 @@ async function loadPlayerStats() {
   try {
     stats = await api(`/api/scores/stats?playerId=${state.player.id}`);
   } catch { stats = null; }
+  // Sert de « solde » pour autoriser (ou non) un indice sur la partie suivante.
+  state.totalPoints = stats && typeof stats.totalPoints === "number" ? stats.totalPoints : 0;
+  updateHintButton();
   const winRate = stats && stats.gamesPlayed
     ? Math.round((stats.wins / stats.gamesPlayed) * 100) : 0;
   const tiles = [
@@ -989,7 +1096,8 @@ function toast(message) {
   void el.toast.offsetWidth;
   el.toast.style.animation = "";
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.toast.hidden = true; }, 2200);
+  // Durée d'affichage assez longue pour laisser le temps de lire le message.
+  toastTimer = setTimeout(() => { el.toast.hidden = true; }, 5000);
 }
 
 function formatDate(iso) {

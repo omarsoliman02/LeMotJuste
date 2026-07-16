@@ -11,6 +11,9 @@
   --ghost:    #c9c9c9;
   --key-bg:   #d3d6da;
   --key-text: #1a1a1b;
+  /* Touche « lettre absente » : nettement plus foncée que --key-bg pour qu'une touche
+     déjà jouée se distingue au premier coup d'œil d'une touche encore libre. */
+  --key-absent: #787c7e;
   --text:     #1a1a1b;
   --muted:    #787c7e;
   --line:     #d3d6da;
@@ -28,12 +31,15 @@
 /* Thème sombre (palette façon Wordle nuit). */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --gray:   #5a5d5e;
+  --gray:   #6a6d6e;
   --tile-border:        #3a3a3c;
   --tile-border-filled: #565758;
   --ghost:    #565758;
   --key-bg:   #818384;
   --key-text: #f8f8f8;
+  /* Touche « absente » en sombre : gris très foncé (façon Wordle nuit), bien plus sombre
+     que la touche libre (#818384) pour rester distinguable. */
+  --key-absent: #3a3a3c;
   --text:     #f8f8f8;
   --muted:    #9a9a9c;
   --line:     #3a3a3c;
@@ -281,6 +287,18 @@ body {
   text-align: center;
 }
 
+/* Contrôles de partie (indice / annuler), placés au-dessus de la grille et loin du
+   clavier. Repliés (hauteur nulle) quand leurs deux boutons sont masqués. */
+.play-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-height: 0;
+}
+
 /* Plateau */
 .board {
   --cols: 5;
@@ -322,6 +340,14 @@ body {
 }
 .tile--filled { border-color: var(--tile-border-filled); animation: pop .1s; }
 .tile--ghost { color: var(--ghost); }
+/* Lettre révélée par un indice : placée et verrouillée (le joueur ne peut pas l'effacer).
+   Contour vert tireté pour la distinguer d'une lettre saisie ou d'une case validée. */
+.tile--hint {
+  border: 2px dashed var(--green);
+  color: var(--text);
+  background: var(--bg);
+  animation: pop .1s;
+}
 
 .tile--correct, .tile--present, .tile--absent {
   color: #fff;
@@ -377,19 +403,25 @@ body {
 
 /* Option « clavier du téléphone » : champ invisible qui reçoit le focus pour faire
    apparaître le clavier natif. Il reste focusable (pas de display:none) mais ne se
-   voit pas et n'intercepte aucun toucher. font-size ≥ 16px, sinon iOS zoome la page
-   au focus. */
+   voit pas et n'intercepte aucun toucher. font-size ≥ 16px, sinon iOS zoome au focus.
+
+   Positionné en `fixed` dans le coin haut-gauche du viewport : comme le caret est déjà
+   visible, le navigateur n'a jamais besoin de « scroller pour révéler le champ » à chaque
+   frappe — ce qui corrige le tremblement / scroll incontrôlé quand on tape au clavier
+   natif (le champ était auparavant en bas de page, sous le clavier système). */
 .native-input {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
+  position: fixed;
+  top: 0;
+  left: 0;
   width: 1px;
   height: 1px;
   opacity: 0;
   border: none;
   padding: 0;
+  margin: 0;
   font-size: 16px;
   pointer-events: none;
+  z-index: -1;
 }
 
 /* Bouton-interrupteur générique (clavier du téléphone, réglages). */
@@ -455,7 +487,9 @@ body {
 .key svg { width: 22px; height: 22px; }
 .key--correct { background: var(--green); color: #fff; }
 .key--present { background: var(--yellow); color: #fff; }
-.key--absent  { background: var(--gray); color: #fff; }
+/* Touche d'une lettre absente : couleur dédiée (voir --key-absent), nettement plus
+   sombre qu'une touche libre pour rester lisible en mode sombre. */
+.key--absent  { background: var(--key-absent); color: #fff; }
 
 /* Modale stats */
 .modal { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; }
@@ -605,6 +639,12 @@ body {
   text-underline-offset: 2px;
 }
 .link-btn:hover { color: var(--text); }
+.link-btn:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+.link-btn:disabled:hover { color: var(--muted); }
 
 /* Écran de connexion admin */
 .admin-login {
