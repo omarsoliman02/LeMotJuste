@@ -26,7 +26,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=20">
+  <link rel="stylesheet" href="styles.css?v=21">
 </head>
 <body>
   <div class="app">
@@ -91,6 +91,14 @@
       <!-- Écran 2 : partie -->
       <section class="play" id="play" hidden>
         <p class="caption" id="caption"></p>
+        <!-- Contrôles de partie placés AU-DESSUS de la grille, loin du clavier, pour
+             éviter les appuis accidentels juste au-dessus des touches. -->
+        <div class="play-controls" id="playControls">
+          <button class="link-btn" id="hintBtn" type="button" hidden></button>
+          <button class="link-btn" id="cancelGameBtn" type="button" hidden>
+            Annuler la partie
+          </button>
+        </div>
         <div class="board" id="board"></div>
         <p class="result" id="result" hidden aria-live="polite"></p>
         <div class="size-select" id="sizeSelect">
@@ -101,13 +109,9 @@
           <button class="btn" id="startBtn" type="button">Commencer la partie</button>
           <button class="btn btn--outline" id="dailyBtn" type="button">Mot du jour</button>
         </div>
-        <button class="link-btn" id="hintBtn" type="button" hidden></button>
-        <button class="link-btn" id="cancelGameBtn" type="button" hidden>
-          Annuler et changer la taille de la grille
-        </button>
-        <!-- Option mobile : saisie via le clavier natif du téléphone. Le champ invisible
-             reçoit le focus et fait apparaître le clavier du système ; sa valeur reflète
-             le mot en cours (voir app.js). -->
+        <!-- Entre la grille et le clavier : UNIQUEMENT le bouton d'activation du clavier
+             natif du téléphone. Le champ invisible reçoit le focus pour faire apparaître
+             le clavier du système ; sa valeur reflète les lettres saisies (voir app.js). -->
         <button class="pill-toggle" id="kbToggle" type="button" hidden
                 aria-pressed="false">Clavier du téléphone</button>
         <input class="native-input" id="nativeInput" type="text"
@@ -242,6 +246,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="assertive" hidden></div>
 
-  <script src="app.js?v=20"></script>
+  <script src="app.js?v=21"></script>
 </body>
 </html>
