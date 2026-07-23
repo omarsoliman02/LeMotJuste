@@ -14,3 +14,11 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: false
+
+# Jetons d'API (valeurs de dev, à surcharger par variables d'environnement en prod).
+# internal : partagé avec game-service pour autoriser l'enregistrement d'un score.
+# admin    : requis pour lister l'historique complet (vue admin).
+internal:
+  api-token: ${INTERNAL_API_TOKEN:lemotjuste-internal-token}
+admin:
+  api-token: ${ADMIN_API_TOKEN:motus-admin}

@@ -4,6 +4,7 @@ import fr.lemotjuste.score.dto.LeaderboardEntry;
 import fr.lemotjuste.score.dto.PlayerStatsResponse;
 import fr.lemotjuste.score.dto.RecordScoreRequest;
 import fr.lemotjuste.score.dto.ScoreResponse;
+import fr.lemotjuste.score.security.ApiTokenGuard;
 import fr.lemotjuste.score.service.ScoreService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -16,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,20 +28,28 @@ import org.springframework.web.bind.annotation.RestController;
 public class ScoreController {
 
     private final ScoreService service;
+    private final ApiTokenGuard tokens;
 
-    public ScoreController(ScoreService service) {
+    public ScoreController(ScoreService service, ApiTokenGuard tokens) {
         this.service = service;
+        this.tokens = tokens;
     }
 
     @PostMapping
     @Operation(summary = "Historiser un résultat",
-            description = "Appelé en OpenFeign par game-service en fin de partie. Enregistre "
-                    + "victoire/défaite, nombre d'essais et mot joué.")
+            description = "Appelé en OpenFeign par game-service en fin de partie (jeton interne "
+                    + "requis). Enregistre victoire/défaite, nombre d'essais et mot joué.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Résultat enregistré"),
-            @ApiResponse(responseCode = "400", description = "Corps de requête invalide")
+            @ApiResponse(responseCode = "400", description = "Corps de requête invalide"),
+            @ApiResponse(responseCode = "403", description = "Jeton interne manquant ou invalide")
     })
-    public ResponseEntity<ScoreResponse> record(@Valid @RequestBody RecordScoreRequest request) {
+    public ResponseEntity<ScoreResponse> record(
+            @RequestHeader(value = "X-Internal-Token", required = false) String internalToken,
+            @Valid @RequestBody RecordScoreRequest request) {
+        // Écriture réservée au service interne : empêche l'injection de faux scores
+        // (bourrage du classement) par un appel direct depuis l'extérieur.
+        tokens.requireInternal(internalToken);
         ScoreResponse created = service.record(request);
         return ResponseEntity.created(URI.create("/api/scores/" + created.id())).body(created);
     }
@@ -77,8 +87,14 @@ public class ScoreController {
     }
 
     @GetMapping
-    @Operation(summary = "Lister tous les résultats", description = "Tous joueurs confondus (vue admin).")
-    public List<ScoreResponse> getAll() {
+    @Operation(summary = "Lister tous les résultats",
+            description = "Tous joueurs confondus (vue admin, jeton administrateur requis).")
+    @ApiResponse(responseCode = "200", description = "Liste renvoyée")
+    @ApiResponse(responseCode = "403", description = "Jeton administrateur manquant ou invalide")
+    public List<ScoreResponse> getAll(
+            @RequestHeader(value = "X-Admin-Token", required = false) String adminToken) {
+        // Historique complet de tous les joueurs : réservé à l'admin (données sensibles).
+        tokens.requireAdmin(adminToken);
         return service.getAll();
     }
 }

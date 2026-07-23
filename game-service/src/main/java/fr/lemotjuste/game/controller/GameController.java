@@ -5,6 +5,7 @@ import fr.lemotjuste.game.dto.GuessRequest;
 import fr.lemotjuste.game.dto.GuessResponse;
 import fr.lemotjuste.game.dto.HintResponse;
 import fr.lemotjuste.game.dto.StartGameRequest;
+import fr.lemotjuste.game.security.ApiTokenGuard;
 import fr.lemotjuste.game.service.GameService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -27,9 +29,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class GameController {
 
     private final GameService service;
+    private final ApiTokenGuard tokens;
 
-    public GameController(GameService service) {
+    public GameController(GameService service, ApiTokenGuard tokens) {
         this.service = service;
+        this.tokens = tokens;
     }
 
     @PostMapping
@@ -60,8 +64,12 @@ public class GameController {
 
     @GetMapping
     @Operation(summary = "Lister toutes les parties",
-            description = "Tous joueurs confondus (utilisé par la vue admin).")
-    public List<GameResponse> getAll() {
+            description = "Tous joueurs confondus (vue admin, jeton administrateur requis).")
+    @ApiResponse(responseCode = "200", description = "Liste renvoyée")
+    @ApiResponse(responseCode = "403", description = "Jeton administrateur manquant ou invalide")
+    public List<GameResponse> getAll(
+            @RequestHeader(value = "X-Admin-Token", required = false) String adminToken) {
+        tokens.requireAdmin(adminToken);
         return service.getAll();
     }
 

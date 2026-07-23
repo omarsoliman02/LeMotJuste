@@ -12,6 +12,7 @@ import fr.lemotjuste.score.dto.LeaderboardEntry;
 import fr.lemotjuste.score.dto.PlayerStatsResponse;
 import fr.lemotjuste.score.dto.ScoreResponse;
 import fr.lemotjuste.score.exception.GlobalExceptionHandler;
+import fr.lemotjuste.score.security.ApiTokenGuard;
 import fr.lemotjuste.score.service.ScoreService;
 import java.time.Instant;
 import java.util.List;
@@ -25,12 +26,16 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 /** Test de la couche web en MockMvc « standalone » (sans contexte Spring complet). */
 class ScoreControllerTest {
 
+    private static final String INTERNAL = "internal-test";
+    private static final String ADMIN = "admin-test";
+
     private final ScoreService service = mock(ScoreService.class);
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.standaloneSetup(new ScoreController(service))
+        ApiTokenGuard tokens = new ApiTokenGuard(INTERNAL, ADMIN);
+        mvc = MockMvcBuilders.standaloneSetup(new ScoreController(service, tokens))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -41,6 +46,7 @@ class ScoreControllerTest {
                 .willReturn(new ScoreResponse(1L, 1L, 10L, true, 3, "CHEVAL", false, 0, 75, Instant.now()));
 
         mvc.perform(post("/api/scores")
+                        .header("X-Internal-Token", INTERNAL)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"playerId\":1,\"gameId\":10,\"won\":true,\"attempts\":3,\"word\":\"CHEVAL\"}"))
                 .andExpect(status().isCreated())
@@ -51,12 +57,39 @@ class ScoreControllerTest {
     }
 
     @Test
+    void rejectsRecordWithoutInternalTokenWith403() throws Exception {
+        mvc.perform(post("/api/scores")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"playerId\":1,\"gameId\":10,\"won\":true,\"attempts\":3,\"word\":\"CHEVAL\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403));
+    }
+
+    @Test
     void rejectsMissingPlayerIdWith400() throws Exception {
         mvc.perform(post("/api/scores")
+                        .header("X-Internal-Token", INTERNAL)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"gameId\":10,\"won\":true,\"attempts\":3,\"word\":\"CHEVAL\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void rejectsGetAllWithoutAdminTokenWith403() throws Exception {
+        mvc.perform(get("/api/scores"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403));
+    }
+
+    @Test
+    void returnsAllWithAdminToken() throws Exception {
+        given(service.getAll())
+                .willReturn(List.of(new ScoreResponse(1L, 1L, 10L, true, 3, "CHEVAL", false, 0, 75, Instant.now())));
+
+        mvc.perform(get("/api/scores").header("X-Admin-Token", ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].gameId").value(10));
     }
 
     @Test
