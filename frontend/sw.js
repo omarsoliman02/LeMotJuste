@@ -2,13 +2,13 @@
 // chargement hors ligne. Les appels /api/** ne sont JAMAIS mis en cache (données
 // de jeu en temps réel) ; ils partent sur le réseau sans interception.
 // À chaque livraison du frontend : bumper CACHE (aligné sur le ?v= de index.html).
-const CACHE = "lemotjuste-v24";
+const CACHE = "lemotjuste-v25";
 const SHELL = [
   "./",
   "./index.html",
-  "./theme.js?v=24",
-  "./styles.css?v=24",
-  "./app.js?v=24",
+  "./theme.js?v=25",
+  "./styles.css?v=25",
+  "./app.js?v=25",
   "./favicon.svg",
   "./manifest.webmanifest",
 ];
@@ -17,6 +17,13 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting())
   );
+});
+
+// Filet : si la page demande explicitement d'activer la version en attente (bouton
+// « Mettre à jour »), on saute l'attente. skipWaiting() est déjà appelé à l'install,
+// ce handler couvre les cas où un worker resterait en attente.
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {

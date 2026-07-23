@@ -90,24 +90,26 @@ body {
    (titre au-dessus, boutons en dessous) plutôt qu'un point de rupture lié à la
    largeur de la fenêtre — sinon les boutons peuvent chevaucher le titre dès que
    plusieurs sont affichés en même temps (Admin, Changer, Stats, Règles). */
+/* Une seule rangée : espace | titre centré | bouton menu. Un seul bouton visible
+   (le menu) => plus aucun risque de chevauchement titre/boutons, même à l'étroit. */
 .header {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-areas: "title title" "left right";
-  align-items: start;
-  row-gap: 8px;
-  column-gap: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--line);
 }
+.header__spacer { width: 34px; flex: none; }
 .header__title {
-  grid-area: title;
+  flex: 1;
   margin: 0;
   text-align: center;
   font-weight: 800;
   font-size: 1.4rem;
   letter-spacing: .01em;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
   border-radius: 6px;
 }
@@ -136,15 +138,76 @@ body {
   font-size: .85rem;
   font-weight: 800;
 }
-.header__side { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.header__side--left { grid-area: left; justify-self: start; justify-content: flex-start; }
-.header__side--right { grid-area: right; justify-self: end; justify-content: flex-end; }
-.header__btn--admin { border-color: var(--gray); }
+
+/* Menu déroulant */
+.menu { position: relative; flex: none; }
+.menu__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  min-width: 210px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .18);
+  display: flex;
+  flex-direction: column;
+}
+.menu__item {
+  font-family: inherit;
+  font-size: .95rem;
+  font-weight: 600;
+  text-align: left;
+  color: var(--text);
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  padding: 11px 12px;
+  cursor: pointer;
+}
+.menu__item:hover { background: var(--surface-hover); }
+.menu__item--admin { color: var(--muted); font-weight: 600; }
+.menu__sep { height: 1px; background: var(--line); margin: 5px 6px; }
+
+/* Bandeau « nouvelle version disponible » (mise à jour PWA sans réinstallation) */
+.update-bar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 24px);
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  padding: 10px 12px 10px 16px;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
+  font-size: .9rem;
+  font-weight: 600;
+}
+.update-bar__label { white-space: nowrap; }
+.update-bar__btn {
+  font-family: inherit;
+  font-size: .85rem;
+  font-weight: 700;
+  color: var(--btn-bg);
+  background: var(--btn-text);
+  border: 0;
+  border-radius: 999px;
+  padding: 7px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
 
 /* Encore un peu plus compact sur les très petits écrans. */
 @media (max-width: 360px) {
-  .header__btn { font-size: .78rem; padding: 5px 8px; }
   .header__btn--icon { width: 30px; height: 30px; }
+  .header__spacer { width: 30px; }
 }
 
 .main {
@@ -366,6 +429,14 @@ body {
   margin: 4px 0 0;
 }
 .result b { letter-spacing: .04em; }
+/* Ligne « bonus de série » sous le résultat (uniquement si le joueur enchaîne). */
+.result__bonus {
+  display: block;
+  margin-top: 6px;
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--green);
+}
 .actions {
   padding: 12px 0;
   min-height: 24px;
@@ -538,8 +609,16 @@ body {
   padding: 12px 4px;
   text-align: center;
   min-width: 0;
+  overflow: hidden;
 }
-.stat__value { font-size: 1.5rem; font-weight: 800; }
+/* Police fluide : un total à 5+ chiffres (>10 000 pts) rétrécit au lieu de déborder
+   sur la tuile voisine. overflow-wrap en filet ultime. */
+.stat__value {
+  font-size: clamp(1.02rem, 5.2vw, 1.5rem);
+  font-weight: 800;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
 .stat__label { font-size: .68rem; color: var(--muted); margin-top: 2px; line-height: 1.25; }
 
 /* Répartition des essais gagnants : barres horizontales, valeur en encre de texte
@@ -610,17 +689,19 @@ body {
 .leaderboard { list-style: none; margin: 0; padding: 0; }
 .lb__row {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   padding: 10px 4px;
   border-bottom: 1px solid var(--line);
 }
 .lb__row:last-child { border-bottom: none; }
 .lb__row--me { font-weight: 700; }
 .lb__rank { color: var(--muted); text-align: center; font-weight: 700; }
+.lb__rank--medal { font-size: 1.2rem; line-height: 1; }
 .lb__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lb__score { font-size: .85rem; color: var(--muted); }
+.lb__score { font-size: .82rem; color: var(--muted); text-align: right; white-space: nowrap; }
+.lb__score b { color: var(--text); }
 
 /* Règles */
 .rules-list { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 8px; font-size: .92rem; line-height: 1.4; }

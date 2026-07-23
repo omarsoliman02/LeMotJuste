@@ -24,6 +24,10 @@ const MAX_ATTEMPTS = 6;
 // classement) : 10 points par lettre du mot trouvé + 5 par essai non utilisé, 0 si perdu.
 const POINTS_PER_LETTER = 10;
 const POINTS_PER_SPARE_ATTEMPT = 5;
+// Bonus de série (miroir de score-service) : +5 pts par victoire consécutive au-delà
+// de la première, plafonné à +25.
+const STREAK_BONUS = 5;
+const STREAK_BONUS_CAP = 25;
 function pointsFor(won, attempts, wordLength) {
   return won ? POINTS_PER_LETTER * wordLength + POINTS_PER_SPARE_ATTEMPT * (MAX_ATTEMPTS - attempts) : 0;
 }
@@ -71,11 +75,14 @@ const state = {
   maxHints: 2,      // renvoyé par le serveur à chaque indice
   myScores: [],     // dernier historique chargé (sert à afficher les points en fin de partie)
   totalPoints: 0,   // points cumulés du joueur (seuil requis pour s'offrir un indice)
+  currentStreak: 0, // série de victoires en cours (sert au bonus affiché en fin de partie)
 };
 
 const $ = (id) => document.getElementById(id);
 const el = {
   homeTitle: $("homeTitle"),
+  menuBtn: $("menuBtn"),
+  appMenu: $("appMenu"),
   changePlayer: $("changePlayer"),
   openStats: $("openStats"),
   openRules: $("openRules"),
@@ -132,7 +139,26 @@ const el = {
   adminGames: $("adminGames"),
   adminScores: $("adminScores"),
   toast: $("toast"),
+  updateBar: $("updateBar"),
+  updateReload: $("updateReload"),
 };
+
+// Formate un nombre pour l'affichage (séparateur de milliers français : 10 250).
+// Évite qu'un total à 5+ chiffres soit illisible et facilite le retour à la ligne.
+const fmtNum = (n) => Number(n || 0).toLocaleString("fr-FR");
+
+// Médaille pour le podium (3 premiers), sinon le rang numérique.
+const MEDALS = ["🥇", "🥈", "🥉"];
+function rankCell(i) {
+  return i < 3
+    ? `<span class="lb__rank lb__rank--medal" title="${i + 1}e">${MEDALS[i]}</span>`
+    : `<span class="lb__rank">${i + 1}</span>`;
+}
+function closeMenu() {
+  if (el.appMenu.hidden) return;
+  el.appMenu.hidden = true;
+  el.menuBtn.setAttribute("aria-expanded", "false");
+}
 
 // --- Appels API ---
 class ApiError extends Error {
@@ -452,9 +478,17 @@ async function endGame() {
   // Ne complète le message que si le joueur n'a pas déjà relancé une partie entre-temps.
   if (won && state.game === game) {
     const recorded = state.myScores.find((s) => s.gameId === game.id);
+    // Bonus de série : +5 pts par victoire consécutive au-delà de la 1re (plafond +25),
+    // même formule que score-service. state.currentStreak inclut la victoire courante.
+    const streak = state.currentStreak || 0;
+    const streakBonus = Math.min(STREAK_BONUS * Math.max(0, streak - 1), STREAK_BONUS_CAP);
     const points = recorded ? recorded.points
-      : Math.max(0, pointsFor(true, used, game.wordLength) - HINT_COST * (game.hintsUsed || 0));
-    el.result.innerHTML += ` <b>+${points} points.</b>`;
+      : Math.max(0, pointsFor(true, used, game.wordLength) + streakBonus - HINT_COST * (game.hintsUsed || 0));
+    el.result.innerHTML += ` <b>+${fmtNum(points)} points.</b>`;
+    if (streakBonus > 0) {
+      el.result.innerHTML +=
+        `<span class="result__bonus">🔥 ${streak} victoires d'affilée · +${streakBonus} pts de bonus de série</span>`;
+    }
   }
 }
 
@@ -760,11 +794,12 @@ async function loadPlayerStats() {
   } catch { stats = null; }
   // Sert de « solde » pour autoriser (ou non) un indice sur la partie suivante.
   state.totalPoints = stats && typeof stats.totalPoints === "number" ? stats.totalPoints : 0;
+  state.currentStreak = stats && typeof stats.currentStreak === "number" ? stats.currentStreak : 0;
   updateHintButton();
   const winRate = stats && stats.gamesPlayed
     ? Math.round((stats.wins / stats.gamesPlayed) * 100) : 0;
   const tiles = [
-    { value: stats ? stats.totalPoints : 0, label: "Points" },
+    { value: fmtNum(stats ? stats.totalPoints : 0), label: "Points" },
     { value: winRate + " %", label: `Victoires (${stats ? stats.wins : 0}/${stats ? stats.gamesPlayed : 0})` },
     { value: stats ? stats.currentStreak : 0, label: "Série en cours" },
     { value: stats ? stats.bestStreak : 0, label: "Meilleure série" },
@@ -830,10 +865,10 @@ async function loadDailyBoard() {
       li.className = "lb__row" + (me ? " lb__row--me" : "");
       const name = names.get(s.playerId) || `Joueur ${s.playerId}`;
       const detail = s.won
-        ? `<b>+${s.points} pts</b> · ${s.attempts} essai${s.attempts > 1 ? "s" : ""}`
+        ? `<b>+${fmtNum(s.points)} pts</b> · ${s.attempts} essai${s.attempts > 1 ? "s" : ""}`
         : "raté";
       li.innerHTML =
-        `<span class="lb__rank">${i + 1}</span>
+        `${rankCell(i)}
          <span class="lb__name">${escapeHtml(name)}</span>
          <span class="lb__score">${detail}</span>`;
       return li;
@@ -858,7 +893,7 @@ async function loadHistory() {
       const left = document.createElement("div");
       left.innerHTML =
         `<div class="history__word">${escapeHtml(s.word)}</div>
-         <div class="history__meta">${s.daily ? "Mot du jour · " : ""}${s.attempts} essai${s.attempts > 1 ? "s" : ""}${s.won ? ` · +${points} pts` : ""}, ${formatDate(s.playedAt)}</div>`;
+         <div class="history__meta">${s.daily ? "Mot du jour · " : ""}${s.attempts} essai${s.attempts > 1 ? "s" : ""}${s.won ? ` · +${fmtNum(points)} pts` : ""}, ${formatDate(s.playedAt)}</div>`;
       const tag = document.createElement("span");
       tag.className = "tag " + (s.won ? "tag--won" : "tag--lost");
       tag.textContent = s.won ? "Gagné" : "Perdu";
@@ -883,9 +918,9 @@ async function loadLeaderboard() {
       li.className = "lb__row" + (me ? " lb__row--me" : "");
       const name = names.get(entry.playerId) || `Joueur ${entry.playerId}`;
       li.innerHTML =
-        `<span class="lb__rank">${i + 1}</span>
+        `${rankCell(i)}
          <span class="lb__name">${escapeHtml(name)}</span>
-         <span class="lb__score"><b>${entry.points ?? 0} pts</b> · ${entry.wins} gagnée${entry.wins > 1 ? "s" : ""} sur ${entry.gamesPlayed}</span>`;
+         <span class="lb__score"><b>${fmtNum(entry.points ?? 0)} pts</b> · ${entry.wins}/${entry.gamesPlayed}</span>`;
       return li;
     })
   );
@@ -1012,9 +1047,9 @@ async function loadAdminData() {
 
   renderAdminTable(el.adminLeaderboard, ["Rang", "Joueur", "Points", "Victoires", "Parties jouées", "Taux de victoire"],
     leaderboard.map((entry, i) => [
-      i + 1,
+      i < 3 ? MEDALS[i] : i + 1,
       adminData.nameOf(entry.playerId),
-      entry.points ?? 0,
+      fmtNum(entry.points ?? 0),
       entry.wins,
       entry.gamesPlayed,
       entry.gamesPlayed ? Math.round((entry.wins / entry.gamesPlayed) * 100) + " %" : "—",
@@ -1144,6 +1179,31 @@ function init() {
     if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goHome(); }
   });
 
+  // Menu déroulant (stats, règles, réglages, changer, admin) : un seul bouton sur mobile.
+  el.menuBtn.addEventListener("click", () => {
+    const willOpen = el.appMenu.hidden;
+    el.appMenu.hidden = !willOpen;
+    el.menuBtn.setAttribute("aria-expanded", String(willOpen));
+  });
+  // Clic sur un item : on referme (l'action de l'item garde son propre handler).
+  el.appMenu.addEventListener("click", (e) => {
+    if (e.target.closest(".menu__item")) closeMenu();
+  });
+  // Clic en dehors ou touche Échap : on referme.
+  document.addEventListener("click", (e) => {
+    if (el.appMenu.hidden) return;
+    if (el.appMenu.contains(e.target) || el.menuBtn.contains(e.target)) return;
+    closeMenu();
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenu(); });
+
+  // Bandeau « nouvelle version » : appliquer la mise à jour = simple rechargement.
+  el.updateReload.addEventListener("click", () => {
+    swRefreshing = true;
+    el.updateReload.disabled = true;
+    window.location.reload();
+  });
+
   el.signinForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const username = el.usernameInput.value.trim();
@@ -1253,10 +1313,24 @@ function init() {
   buildSizeOptions();
   loadPlayers().then(renderPlayerChips);
 
-  // PWA : cache de l'app shell (jamais l'API), voir sw.js. Best-effort.
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
-  }
+  // PWA : cache de l'app shell (jamais l'API), voir sw.js. Best-effort + MàJ auto.
+  setupServiceWorker();
+}
+
+// Enregistre le service worker et propose un rafraîchissement quand une nouvelle
+// version prend le contrôle — plus besoin de retirer/réinstaller la PWA de l'accueil.
+let swRefreshing = false;
+function setupServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  // Y avait-il déjà un worker au chargement ? Sinon, le 1er contrôle = première
+  // installation (pas une mise à jour) : on n'affiche pas le bandeau dans ce cas.
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (swRefreshing) return;
+    if (!hadController) return; // première installation
+    el.updateBar.hidden = false; // « Nouvelle version disponible » (voir index.html)
+  });
 }
 
 init();
