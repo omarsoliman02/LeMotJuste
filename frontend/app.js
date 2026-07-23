@@ -15,6 +15,24 @@ const GATEWAY =
 // le code ; on garde seulement le jeton validé en sessionStorage, le temps de l'onglet.
 const ADMIN_TOKEN_KEY = "lemotjuste-admin-token";
 
+// Session joueur : après connexion (mot de passe validé côté serveur), on garde le
+// joueur connecté en localStorage pour rester connecté au rechargement / à la réouverture
+// de la PWA. La déconnexion l'efface.
+const SESSION_KEY = "lemotjuste-session";
+function saveSession(player) {
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify(player)); } catch { /* quota */ }
+}
+function clearSession() {
+  try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
+}
+function loadSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    const p = raw ? JSON.parse(raw) : null;
+    return p && typeof p.id === "number" && p.username ? p : null;
+  } catch { return null; }
+}
+
 const STATUS_LABELS = { IN_PROGRESS: "En cours", WON: "Gagnée", LOST: "Perdue", ABANDONED: "Abandonnée" };
 const STATUS_TAG_CLASS = { IN_PROGRESS: "tag--progress", WON: "tag--won", LOST: "tag--lost", ABANDONED: "tag--abandoned" };
 
@@ -91,7 +109,9 @@ const el = {
   play: $("play"),
   signinForm: $("signinForm"),
   usernameInput: $("usernameInput"),
+  passwordInput: $("passwordInput"),
   signinSubmit: $("signinSubmit"),
+  signinError: $("signinError"),
   knownPlayers: $("knownPlayers"),
   playerChips: $("playerChips"),
   caption: $("caption"),
@@ -116,6 +136,12 @@ const el = {
   openSettings: $("openSettings"),
   themeToggle: $("themeToggle"),
   contrastToggle: $("contrastToggle"),
+  settingsAccount: $("settingsAccount"),
+  changePwdForm: $("changePwdForm"),
+  currentPwdInput: $("currentPwdInput"),
+  newPwdInput: $("newPwdInput"),
+  changePwdMsg: $("changePwdMsg"),
+  changePwdSubmit: $("changePwdSubmit"),
   historyList: $("historyList"),
   historyEmpty: $("historyEmpty"),
   leaderboardList: $("leaderboardList"),
@@ -214,45 +240,71 @@ function renderPlayerChips() {
       b.type = "button";
       b.className = "chip";
       b.textContent = p.username;
-      b.addEventListener("click", () => enterAs(p));
+      // Raccourci : remplit le pseudo et donne le focus au mot de passe (toujours requis).
+      b.addEventListener("click", () => {
+        el.usernameInput.value = p.username;
+        el.signinError.hidden = true;
+        el.passwordInput.focus();
+      });
       return b;
     })
   );
 }
 
-async function signIn(username) {
-  const findLocal = () =>
-    state.players.find((p) => p.username.toLowerCase() === username.toLowerCase());
-  const existing = findLocal();
-  if (existing) return existing;
-  let player;
-  try {
-    player = await api("/api/players", {
-      method: "POST",
-      body: JSON.stringify({ username }),
-    });
-  } catch (e) {
-    // 409 : le nom existe déjà côté serveur alors que notre liste locale est périmée
-    // (joueur créé depuis un autre onglet/appareil). On recharge et on se connecte
-    // avec le compte existant plutôt que de bloquer l'utilisateur sur une erreur.
-    if (e.status === 409) {
-      await loadPlayers();
-      const p = findLocal();
-      if (p) return p;
-    }
-    throw e;
-  }
-  // Sans ça, state.players ne connaît pas encore ce joueur tout juste créé : son nom
-  // n'apparaîtrait pas dans le classement avant un futur rechargement de la page
-  // (repli sur "Joueur {id}" dans loadLeaderboard/loadHistory).
-  state.players.push(player);
+// Connexion : le serveur valide le mot de passe (POST /api/players/auth). Renvoie le
+// joueur, crée le compte si le pseudo est neuf (mot de passe initial = pseudo), ou lève
+// une ApiError (401 identifiants invalides, 400 requête invalide).
+async function authenticate(username, password) {
+  const player = await api("/api/players/auth", {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+  // Ajoute le joueur à la liste locale s'il est nouveau : sinon son nom n'apparaîtrait
+  // pas dans le classement avant un rechargement (repli "Joueur {id}").
+  if (!state.players.some((p) => p.id === player.id)) state.players.push(player);
   return player;
+}
+
+function showSigninError(msg) {
+  el.signinError.textContent = msg;
+  el.signinError.hidden = false;
+}
+
+// Réglages > Mon compte : change le mot de passe du joueur connecté (l'actuel est vérifié
+// côté serveur). PUT /api/players/{id}/password → 204, ou 401 si le mot de passe actuel est faux.
+async function changePassword(e) {
+  e.preventDefault();
+  if (!state.player) return;
+  const currentPassword = el.currentPwdInput.value;
+  const newPassword = el.newPwdInput.value;
+  el.changePwdMsg.hidden = true;
+  el.changePwdMsg.classList.remove("pwd-form__msg--ok");
+  setBusy(true, el.changePwdSubmit);
+  try {
+    await api(`/api/players/${state.player.id}/password`, {
+      method: "PUT",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    el.changePwdForm.reset();
+    el.changePwdMsg.textContent = "Mot de passe changé.";
+    el.changePwdMsg.classList.add("pwd-form__msg--ok");
+    el.changePwdMsg.hidden = false;
+  } catch (err) {
+    el.changePwdMsg.textContent = err.status === 401
+      ? "Mot de passe actuel incorrect."
+      : err.message;
+    el.changePwdMsg.hidden = false;
+  } finally {
+    setBusy(false, el.changePwdSubmit);
+  }
 }
 
 async function enterAs(player) {
   state.player = player;
-  el.changePlayer.hidden = false;
+  saveSession(player);
+  el.changePlayer.hidden = false;   // « Déconnexion » dans le menu
   el.openStats.hidden = false;
+  el.settingsAccount.hidden = false; // section « Mon compte » (changer le mot de passe)
   resetGame();
   showPlay();
   await refreshStats();
@@ -1207,28 +1259,41 @@ function init() {
   el.signinForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const username = el.usernameInput.value.trim();
-    if (username.length < 3) {
-      toast("Choisis un nom d'au moins 3 lettres.");
+    const password = el.passwordInput.value;
+    el.signinError.hidden = true;
+    if (username.length < 3) { showSigninError("Choisis un pseudo d'au moins 3 lettres."); return; }
+    if (password.length < 3) {
+      showSigninError("Mot de passe : au moins 3 caractères. (À la première connexion, c'est ton pseudo.)");
       return;
     }
     setBusy(true, el.signinSubmit);
     try {
-      const player = await signIn(username);
+      const player = await authenticate(username, password);
+      el.passwordInput.value = "";
       await enterAs(player);
     } catch (e2) {
-      toast(e2.message);
+      showSigninError(e2.status === 401
+        ? "Pseudo ou mot de passe incorrect. Première connexion : ton mot de passe est ton pseudo."
+        : e2.message);
     } finally {
       setBusy(false, el.signinSubmit);
     }
   });
 
+  // « Déconnexion » : abandonne la partie en cours, efface la session et revient à l'écran
+  // de connexion (il faudra le mot de passe pour se reconnecter).
   el.changePlayer.addEventListener("click", async () => {
     await abandonCurrentGame();
+    clearSession();
     state.player = null;
     state.game = null;
+    state.totalPoints = 0;
+    state.currentStreak = 0;
     el.changePlayer.hidden = true;
     el.openStats.hidden = true;
+    el.settingsAccount.hidden = true;
     el.usernameInput.value = "";
+    el.passwordInput.value = "";
     loadPlayers().then(renderPlayerChips);
     showStart();
   });
@@ -1277,6 +1342,7 @@ function init() {
   });
   el.themeToggle.addEventListener("click", toggleTheme);
   el.contrastToggle.addEventListener("click", toggleContrast);
+  el.changePwdForm.addEventListener("submit", changePassword);
 
   // Option « clavier du téléphone » : champ invisible dont la valeur reflète le mot
   // en cours. On lit le champ après chaque saisie (lettres, accents normalisés,
@@ -1312,6 +1378,11 @@ function init() {
 
   buildSizeOptions();
   loadPlayers().then(renderPlayerChips);
+
+  // Reconnexion automatique : si une session est mémorisée (PWA rouverte, page rechargée),
+  // on ré-entre directement dans le jeu sans redemander le mot de passe.
+  const session = loadSession();
+  if (session) enterAs(session).catch(() => { clearSession(); showStart(); });
 
   // PWA : cache de l'app shell (jamais l'API), voir sw.js. Best-effort + MàJ auto.
   setupServiceWorker();

@@ -14,13 +14,13 @@
 
   <!-- Thème/contraste appliqués avant le premier rendu. Script externe (pas inline)
        pour autoriser une CSP stricte (script-src 'self') en production. -->
-  <script src="theme.js?v=25"></script>
+  <script src="theme.js?v=26"></script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=25">
+  <link rel="stylesheet" href="styles.css?v=26">
 </head>
 <body>
   <div class="app">
@@ -39,7 +39,7 @@
         </button>
         <div class="menu__panel" id="appMenu" role="menu" hidden>
           <button class="menu__item" id="openStats" type="button" role="menuitem" hidden>Mes statistiques</button>
-          <button class="menu__item" id="changePlayer" type="button" role="menuitem" hidden>Changer de joueur</button>
+          <button class="menu__item" id="changePlayer" type="button" role="menuitem" hidden>Déconnexion</button>
           <button class="menu__item" id="openRules" type="button" role="menuitem">Règles du jeu</button>
           <button class="menu__item" id="openSettings" type="button" role="menuitem">Réglages</button>
           <div class="menu__sep" role="separator"></div>
@@ -76,10 +76,17 @@
           </div>
         </div>
 
-        <form class="start__form" id="signinForm" autocomplete="off">
-          <input class="input" id="usernameInput" type="text"
-                 placeholder="Ton nom de joueur" minlength="3" maxlength="20" required>
-          <button class="btn" type="submit" id="signinSubmit">Jouer</button>
+        <form class="start__form" id="signinForm">
+          <input class="input" id="usernameInput" type="text" name="username"
+                 placeholder="Ton pseudo" minlength="3" maxlength="20"
+                 autocomplete="username" required>
+          <input class="input" id="passwordInput" type="password" name="password"
+                 placeholder="Mot de passe" minlength="3" maxlength="72"
+                 autocomplete="current-password" required>
+          <button class="btn" type="submit" id="signinSubmit">Se connecter</button>
+          <p class="start__hint" id="signinHint">Première fois ? Ton <b>mot de passe = ton pseudo</b> —
+            tu pourras le changer ensuite dans les réglages.</p>
+          <p class="start__error" id="signinError" hidden></p>
         </form>
         <div class="start__known" id="knownPlayers" hidden>
           <span class="start__known-label">Déjà joué ?</span>
@@ -212,6 +219,18 @@
       </div>
       <p class="settings__hint">Le contraste élevé remplace le vert et le jaune par de l'orange
         et du bleu, plus faciles à distinguer en cas de daltonisme.</p>
+
+      <div class="settings__account" id="settingsAccount" hidden>
+        <h3 class="settings__subtitle">Mon compte</h3>
+        <form class="pwd-form" id="changePwdForm" autocomplete="off">
+          <input class="input" id="currentPwdInput" type="password" placeholder="Mot de passe actuel"
+                 minlength="3" maxlength="72" autocomplete="current-password" required>
+          <input class="input" id="newPwdInput" type="password" placeholder="Nouveau mot de passe"
+                 minlength="3" maxlength="72" autocomplete="new-password" required>
+          <button class="btn btn--outline" type="submit" id="changePwdSubmit">Changer mon mot de passe</button>
+          <p class="pwd-form__msg" id="changePwdMsg" hidden></p>
+        </form>
+      </div>
     </div>
   </div>
 
@@ -252,6 +271,6 @@
     <button class="update-bar__btn" id="updateReload" type="button">Mettre à jour</button>
   </div>
 
-  <script src="app.js?v=25"></script>
+  <script src="app.js?v=26"></script>
 </body>
 </html>
