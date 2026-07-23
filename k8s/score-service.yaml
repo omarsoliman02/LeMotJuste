@@ -44,6 +44,16 @@ spec:
                 secretKeyRef:
                   name: postgres-secret
                   key: POSTGRES_PASSWORD
+            - name: INTERNAL_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: INTERNAL_API_TOKEN
+            - name: ADMIN_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: ADMIN_API_TOKEN
           resources:
             requests:
               cpu: 100m
