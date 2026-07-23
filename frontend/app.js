@@ -186,13 +186,23 @@ const el = {
 // Évite qu'un total à 5+ chiffres soit illisible et facilite le retour à la ligne.
 const fmtNum = (n) => Number(n || 0).toLocaleString("fr-FR");
 
-// Médaille pour le podium (3 premiers), sinon le rang numérique.
-const MEDALS = ["🥇", "🥈", "🥉"];
+// Podium (3 premiers) : pastille or/argent/bronze avec le rang, sinon rang simple.
+const RANK_KEYS = ["gold", "silver", "bronze"];
 function rankCell(i) {
   return i < 3
-    ? `<span class="lb__rank lb__rank--medal" title="${i + 1}e">${MEDALS[i]}</span>`
+    ? `<span class="lb__rank lb__rank--medal lb__rank--${RANK_KEYS[i]}" title="${i + 1}e">${i + 1}</span>`
     : `<span class="lb__rank">${i + 1}</span>`;
 }
+// Variante pour les tableaux admin (cellule HTML).
+function rankBadge(i) {
+  return i < 3
+    ? { html: `<span class="rank-badge rank-badge--${RANK_KEYS[i]}">${i + 1}</span>` }
+    : i + 1;
+}
+
+// Petites icônes SVG (style trait, couleur héritée) en remplacement des emojis.
+const ICON_CLOCK = '<svg class="icon" viewBox="0 0 24 24" fill="none" width="16" height="16"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const ICON_FLAME = '<svg class="icon" viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M12 3c1 3-2 4.2-2 7a2 2 0 104 0c0-.9.6-1.4.6-1.4.7 1 1.4 2.1 1.4 3.9a4 4 0 11-8 0c0-4 4-6.5 4-9.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>';
 function closeMenu() {
   if (el.appMenu.hidden) return;
   el.appMenu.hidden = true;
@@ -326,11 +336,11 @@ async function enterAs(player) {
 
 // --- Easter eggs (temporaire) : clin d'œil caché pour quelques prénoms, selon la perf. ---
 const EASTER_EGGS = {
-  lud:     (c) => `👑 Lud le boss ! ${c.wins} victoire${c.wins > 1 ? "s" : ""} — laisses-en aux autres.`,
-  loly:    (c) => `🌸 Loly ! ${c.rate}% de réussite, tranquille la reine.`,
-  lahcene: (c) => `🐐 Lahcène la légende, ${fmtNum(c.pts)} pts au compteur.`,
-  djena:   (c) => `✨ Djena ! Série de ${c.streak}, tu chauffes doucement.`,
-  omar:    (c) => `🚀 Omar l'organisateur — ${c.played} partie${c.played > 1 ? "s" : ""}, on t'observe.`,
+  lud:     (c) => `Lud le boss ! ${c.wins} victoire${c.wins > 1 ? "s" : ""} — laisses-en aux autres.`,
+  loly:    (c) => `Loly ! ${c.rate}% de réussite, tranquille la reine.`,
+  lahcene: (c) => `Lahcène la légende, ${fmtNum(c.pts)} pts au compteur.`,
+  djena:   (c) => `Djena ! Série de ${c.streak}, tu chauffes doucement.`,
+  omar:    (c) => `Omar l'organisateur — ${c.played} partie${c.played > 1 ? "s" : ""}, on t'observe.`,
 };
 function maybeEasterEgg() {
   if (!state.player) return;
@@ -628,7 +638,7 @@ async function endGame(timedOut = false) {
   const used = MAX_ATTEMPTS - game.attemptsLeft;
   el.result.hidden = false;
   if (timedOut) {
-    el.result.innerHTML = `⏱️ <b>Temps écoulé !</b> Partie classée perdue.`;
+    el.result.innerHTML = `${ICON_CLOCK} <b>Temps écoulé !</b> Partie classée perdue.`;
     toast("Temps écoulé");
   } else {
     el.result.innerHTML = won
@@ -668,7 +678,7 @@ async function endGame(timedOut = false) {
     el.result.innerHTML += ` <b>+${fmtNum(points)} points.</b>`;
     if (streakBonus > 0) {
       el.result.innerHTML +=
-        `<span class="result__bonus">🔥 ${streak} victoires d'affilée · +${streakBonus} pts de bonus de série</span>`;
+        `<span class="result__bonus">${ICON_FLAME} ${streak} victoires d'affilée · +${streakBonus} pts de bonus de série</span>`;
     }
   }
 }
@@ -1282,7 +1292,7 @@ async function loadAdminData() {
 
   renderAdminTable(el.adminLeaderboard, ["Rang", "Joueur", "Points", "Victoires", "Parties jouées", "Taux de victoire"],
     leaderboard.map((entry, i) => [
-      i < 3 ? MEDALS[i] : i + 1,
+      rankBadge(i),
       adminData.nameOf(entry.playerId),
       fmtNum(entry.points ?? 0),
       entry.wins,

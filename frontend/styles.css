@@ -767,7 +767,25 @@ body {
 .lb__row:last-child { border-bottom: none; }
 .lb__row--me { font-weight: 700; }
 .lb__rank { color: var(--muted); text-align: center; font-weight: 700; }
-.lb__rank--medal { font-size: 1.2rem; line-height: 1; }
+/* Podium : pastille ronde colorée avec le rang (au lieu d'un emoji médaille). */
+.lb__rank--medal, .rank-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: 0 auto;
+  border-radius: 50%;
+  font-size: .78rem;
+  font-weight: 800;
+  color: #1a1a1b;
+}
+.rank-badge { width: 22px; height: 22px; margin: 0; }
+.lb__rank--gold,   .rank-badge--gold   { background: #e6c34a; }
+.lb__rank--silver, .rank-badge--silver { background: #c4c9d0; }
+.lb__rank--bronze, .rank-badge--bronze { background: #cd9b6a; }
+/* Icônes SVG inline (série, temps écoulé, ranked) : alignement vertical propre. */
+.icon { vertical-align: -2px; }
+.btn__icon { vertical-align: -3px; margin-right: 2px; }
 .lb__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lb__score { font-size: .82rem; color: var(--muted); text-align: right; white-space: nowrap; }
 .lb__score b { color: var(--text); }

@@ -14,13 +14,13 @@
 
   <!-- Thème/contraste appliqués avant le premier rendu. Script externe (pas inline)
        pour autoriser une CSP stricte (script-src 'self') en production. -->
-  <script src="theme.js?v=29"></script>
+  <script src="theme.js?v=30"></script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=29">
+  <link rel="stylesheet" href="styles.css?v=30">
 </head>
 <body>
   <div class="app">
@@ -99,7 +99,9 @@
         <p class="caption" id="caption"></p>
         <!-- Compte à rebours d'une partie classée (masqué hors ranked). -->
         <div class="ranked-timer" id="rankedTimer" hidden>
-          <span class="ranked-timer__label">⚔️ Classé</span>
+          <span class="ranked-timer__label">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" width="15" height="15"><path d="M12 3l7 3v5c0 4.4-3 7.4-7 9-4-1.6-7-4.6-7-9V6l7-3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+            Classé</span>
           <span class="ranked-timer__clock" id="rankedClock">2:30</span>
         </div>
         <!-- Contrôles de partie placés AU-DESSUS de la grille, loin du clavier, pour
@@ -119,7 +121,9 @@
         <div class="actions" id="actions">
           <button class="btn" id="startBtn" type="button">Commencer la partie</button>
           <button class="btn btn--outline" id="dailyBtn" type="button">Mot du jour</button>
-          <button class="btn btn--ranked" id="rankedBtn" type="button">⚔️ Partie classée</button>
+          <button class="btn btn--ranked" id="rankedBtn" type="button">
+            <svg class="btn__icon" viewBox="0 0 24 24" fill="none" width="18" height="18"><path d="M12 3l7 3v5c0 4.4-3 7.4-7 9-4-1.6-7-4.6-7-9V6l7-3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+            Partie classée</button>
         </div>
         <!-- Entre la grille et le clavier : UNIQUEMENT le bouton d'activation du clavier
              natif du téléphone. Le champ invisible reçoit le focus pour faire apparaître
@@ -301,6 +305,6 @@
     <button class="update-bar__btn" id="updateReload" type="button">Mettre à jour</button>
   </div>
 
-  <script src="app.js?v=29"></script>
+  <script src="app.js?v=30"></script>
 </body>
 </html>
