@@ -35,6 +35,13 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
+        <!-- BCrypt uniquement (pas le starter security) : hachage des mots de passe sans
+             activer de filtres de sécurité web qui verrouilleraient les endpoints. -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+        </dependency>
+
         <!-- Documentation OpenAPI 3 + Swagger UI (compatible Spring Boot 4). -->
         <dependency>
             <groupId>org.springdoc</groupId>

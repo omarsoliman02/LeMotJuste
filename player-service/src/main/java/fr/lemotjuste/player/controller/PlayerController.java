@@ -1,5 +1,7 @@
 package fr.lemotjuste.player.controller;
 
+import fr.lemotjuste.player.dto.AuthRequest;
+import fr.lemotjuste.player.dto.ChangePasswordRequest;
 import fr.lemotjuste.player.dto.CreatePlayerRequest;
 import fr.lemotjuste.player.dto.PlayerResponse;
 import fr.lemotjuste.player.service.PlayerService;
@@ -14,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -41,6 +44,34 @@ public class PlayerController {
     public ResponseEntity<PlayerResponse> create(@Valid @RequestBody CreatePlayerRequest request) {
         PlayerResponse created = service.create(request);
         return ResponseEntity.created(URI.create("/api/players/" + created.id())).body(created);
+    }
+
+    @PostMapping("/auth")
+    @Operation(summary = "Se connecter (ou créer son compte)",
+            description = "Vérifie le mot de passe et renvoie le joueur. Mot de passe initial "
+                    + "= pseudo (compte neuf ou joueur d'avant les comptes), changeable ensuite.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Connecté"),
+            @ApiResponse(responseCode = "400", description = "Requête invalide"),
+            @ApiResponse(responseCode = "401", description = "Identifiants invalides")
+    })
+    public PlayerResponse authenticate(@Valid @RequestBody AuthRequest request) {
+        return service.authenticate(request);
+    }
+
+    @PutMapping("/{id}/password")
+    @Operation(summary = "Changer son mot de passe",
+            description = "Le joueur connecté remplace son mot de passe après vérification de l'actuel.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Mot de passe changé"),
+            @ApiResponse(responseCode = "400", description = "Requête invalide"),
+            @ApiResponse(responseCode = "401", description = "Mot de passe actuel incorrect"),
+            @ApiResponse(responseCode = "404", description = "Joueur introuvable")
+    })
+    public ResponseEntity<Void> changePassword(@PathVariable Long id,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        service.changePassword(id, request);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}")

@@ -26,6 +26,15 @@ public class Player {
     @Column(nullable = false, unique = true)
     private String username;
 
+    /**
+     * Hachage BCrypt du mot de passe. NULLABLE volontairement : les joueurs créés avant
+     * l'introduction des comptes ont ce champ à null ; leur mot de passe initial est alors
+     * leur pseudo, et le hachage est renseigné à leur première connexion (migration douce,
+     * sans perte de données ni script de reprise).
+     */
+    @Column(name = "password_hash")
+    private String passwordHash;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
