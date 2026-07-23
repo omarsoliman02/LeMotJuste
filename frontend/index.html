@@ -14,13 +14,13 @@
 
   <!-- Thème/contraste appliqués avant le premier rendu. Script externe (pas inline)
        pour autoriser une CSP stricte (script-src 'self') en production. -->
-  <script src="theme.js?v=27"></script>
+  <script src="theme.js?v=28"></script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=27">
+  <link rel="stylesheet" href="styles.css?v=28">
 </head>
 <body>
   <div class="app">
@@ -97,6 +97,11 @@
       <!-- Écran 2 : partie -->
       <section class="play" id="play" hidden>
         <p class="caption" id="caption"></p>
+        <!-- Compte à rebours d'une partie classée (masqué hors ranked). -->
+        <div class="ranked-timer" id="rankedTimer" hidden>
+          <span class="ranked-timer__label">⚔️ Classé</span>
+          <span class="ranked-timer__clock" id="rankedClock">2:30</span>
+        </div>
         <!-- Contrôles de partie placés AU-DESSUS de la grille, loin du clavier, pour
              éviter les appuis accidentels juste au-dessus des touches. -->
         <div class="play-controls" id="playControls">
@@ -114,6 +119,7 @@
         <div class="actions" id="actions">
           <button class="btn" id="startBtn" type="button">Commencer la partie</button>
           <button class="btn btn--outline" id="dailyBtn" type="button">Mot du jour</button>
+          <button class="btn btn--ranked" id="rankedBtn" type="button">⚔️ Partie classée</button>
         </div>
         <!-- Entre la grille et le clavier : UNIQUEMENT le bouton d'activation du clavier
              natif du téléphone. Le champ invisible reçoit le focus pour faire apparaître
@@ -191,6 +197,11 @@
       <p class="stats-caption">Répartition des essais gagnants</p>
       <div class="dist" id="distBars"></div>
       <div class="lenstats" id="lengthStats"></div>
+
+      <h2 class="modal__title">Classement Ranked</h2>
+      <div class="ranked-me" id="rankedMe"></div>
+      <ol class="leaderboard" id="rankedList"></ol>
+      <p class="empty" id="rankedEmpty">Aucune partie classée pour le moment. Lance une partie classée !</p>
 
       <h2 class="modal__title">Mot du jour</h2>
       <ol class="leaderboard" id="dailyList"></ol>
@@ -271,6 +282,6 @@
     <button class="update-bar__btn" id="updateReload" type="button">Mettre à jour</button>
   </div>
 
-  <script src="app.js?v=27"></script>
+  <script src="app.js?v=28"></script>
 </body>
 </html>

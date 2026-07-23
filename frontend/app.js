@@ -94,6 +94,9 @@ const state = {
   myScores: [],     // dernier historique chargé (sert à afficher les points en fin de partie)
   totalPoints: 0,   // points cumulés du joueur (seuil requis pour s'offrir un indice)
   currentStreak: 0, // série de victoires en cours (sert au bonus affiché en fin de partie)
+  ranked: null,     // dernier classement ranked du joueur (RP, palier) — voir loadRankedStanding
+  rankedRpBefore: 0,// RP avant la partie ranked en cours (pour afficher le gain/perte)
+  rankedTimerId: null, // identifiant du setInterval du compte à rebours ranked
 };
 
 const $ = (id) => document.getElementById(id);
@@ -122,6 +125,9 @@ const el = {
   actions: $("actions"),
   startBtn: $("startBtn"),
   dailyBtn: $("dailyBtn"),
+  rankedBtn: $("rankedBtn"),
+  rankedTimer: $("rankedTimer"),
+  rankedClock: $("rankedClock"),
   hintBtn: $("hintBtn"),
   keyboard: $("keyboard"),
   kbToggle: $("kbToggle"),
@@ -146,6 +152,9 @@ const el = {
   historyEmpty: $("historyEmpty"),
   leaderboardList: $("leaderboardList"),
   leaderboardEmpty: $("leaderboardEmpty"),
+  rankedMe: $("rankedMe"),
+  rankedList: $("rankedList"),
+  rankedEmpty: $("rankedEmpty"),
   rulesModal: $("rulesModal"),
   adminLogin: $("adminLogin"),
   adminLoginForm: $("adminLoginForm"),
@@ -313,6 +322,7 @@ async function enterAs(player) {
 // Déconnexion : abandonne la partie en cours, efface la session et revient à l'écran de
 // connexion. `message` (optionnel) s'affiche en rouge (ex. jeton de session expiré).
 async function logout(message) {
+  stopRankedTimer();
   await abandonCurrentGame();
   clearSession();
   state.player = null;
@@ -330,13 +340,18 @@ async function logout(message) {
 }
 
 // --- Partie ---
-async function startGame(daily = false) {
+async function startGame(mode = "normal") {
   if (state.busy || !state.player) return;
-  const button = daily ? el.dailyBtn : el.startBtn;
+  const daily = mode === "daily";
+  const ranked = mode === "ranked";
+  const button = ranked ? el.rankedBtn : daily ? el.dailyBtn : el.startBtn;
   setBusy(true, button);
   try {
+    // RP avant la partie ranked : sert à afficher le gain/perte à la fin.
+    if (ranked) state.rankedRpBefore = state.ranked ? state.ranked.rankedPoints : 0;
     const body = { playerId: state.player.id };
-    if (daily) body.daily = true;
+    if (ranked) body.ranked = true;
+    else if (daily) body.daily = true;
     else if (state.wordLength) body.wordLength = state.wordLength;
     const game = await api("/api/games", {
       method: "POST",
@@ -353,10 +368,13 @@ async function startGame(daily = false) {
     el.result.hidden = true;
     el.actions.hidden = true;
     el.sizeSelect.hidden = true;
-    el.cancelGameBtn.hidden = daily; // le mot du jour ne se « ré-essaie » pas, pas d'annulation
+    // Mot du jour et ranked : pas d'annulation (une seule tentative / partie engagée).
+    el.cancelGameBtn.hidden = daily || ranked;
     el.keyboard.setAttribute("aria-hidden", "false");
     el.kbToggle.hidden = !IS_TOUCH;
+    if (ranked) startRankedTimer(game); else stopRankedTimer();
     updateHintButton();
+    if (ranked) el.hintBtn.hidden = true; // pas d'indice en ranked
     render();
     focusNativeInput();
   } catch (e) {
@@ -369,6 +387,48 @@ async function startGame(daily = false) {
   } finally {
     setBusy(false, button);
   }
+}
+
+// --- Timer ranked ---
+function formatClock(totalSeconds) {
+  const m = Math.floor(totalSeconds / 60);
+  return `${m}:${String(totalSeconds % 60).padStart(2, "0")}`;
+}
+function stopRankedTimer() {
+  if (state.rankedTimerId) { clearInterval(state.rankedTimerId); state.rankedTimerId = null; }
+  el.rankedTimer.hidden = true;
+  el.rankedTimer.classList.remove("ranked-timer--urgent");
+}
+function startRankedTimer(game) {
+  stopRankedTimer();
+  el.rankedTimer.hidden = false;
+  const limitMs = (game.timeLimitSeconds || 150) * 1000;
+  const startedMs = new Date(game.createdAt).getTime();
+  const tick = () => {
+    const remaining = Math.max(0, Math.round((startedMs + limitMs - Date.now()) / 1000));
+    el.rankedClock.textContent = formatClock(remaining);
+    el.rankedTimer.classList.toggle("ranked-timer--urgent", remaining <= 15);
+    if (remaining <= 0) {
+      stopRankedTimer();
+      handleRankedTimeout(game);
+    }
+  };
+  tick();
+  state.rankedTimerId = setInterval(tick, 250);
+}
+// Temps écoulé : on informe le serveur (défaite ranked) puis on affiche le résultat.
+async function handleRankedTimeout(game) {
+  if (!game || state.game !== game) return;
+  try {
+    const finished = await api(`/api/games/${game.id}/timeout`, {
+      method: "POST",
+      headers: { "X-Player-Token": state.player.token || "" },
+    });
+    if (state.game === game) {
+      state.game = finished; // statut LOST
+      await endGame(true);
+    }
+  } catch { /* best-effort */ }
 }
 
 // --- Indices ---
@@ -527,7 +587,8 @@ async function submitGuess() {
   }
 }
 
-async function endGame() {
+async function endGame(timedOut = false) {
+  stopRankedTimer();
   el.keyboard.setAttribute("aria-hidden", "true");
   el.kbToggle.hidden = true;
   el.hintBtn.hidden = true;
@@ -536,25 +597,40 @@ async function endGame() {
   const won = game.status === "WON";
   const used = MAX_ATTEMPTS - game.attemptsLeft;
   el.result.hidden = false;
-  el.result.innerHTML = won
-    ? `Bien joué, trouvé en ${used} essai${used > 1 ? "s" : ""}.`
-    : `Raté. Le mot était <b>${escapeHtml(game.solution || "")}</b>.`;
-  toast(won ? "Bien joué" : `Le mot était ${game.solution}`);
+  if (timedOut) {
+    el.result.innerHTML = `⏱️ <b>Temps écoulé !</b> Partie classée perdue.`;
+    toast("Temps écoulé");
+  } else {
+    el.result.innerHTML = won
+      ? `Bien joué, trouvé en ${used} essai${used > 1 ? "s" : ""}.`
+      : `Raté. Le mot était <b>${escapeHtml(game.solution || "")}</b>.`;
+    toast(won ? "Bien joué" : `Le mot était ${game.solution}`);
+  }
   el.actions.hidden = false;
   el.sizeSelect.hidden = false;
   el.cancelGameBtn.hidden = true;
   el.startBtn.textContent = "Rejouer";
   updateDailyButton(); // partie du jour terminée => le bouton reste masqué pour aujourd'hui
 
-  // Les points exacts (bonus de série, malus d'indices compris) sont calculés par
-  // score-service : on les lit dans l'historique fraîchement rechargé. Repli sur le
-  // calcul local de base si le score n'est pas (encore) enregistré.
+  // Recharge stats + classement ranked (les points/RP exacts sont calculés au serveur).
   await refreshStats();
-  // Ne complète le message que si le joueur n'a pas déjà relancé une partie entre-temps.
-  if (won && state.game === game) {
+  // N'ajoute le détail que si le joueur n'a pas déjà relancé une partie entre-temps.
+  if (state.game !== game) return;
+
+  if (game.ranked) {
+    // Ranked : gain/perte de RP + palier atteint (pas de points casual).
+    const after = state.ranked ? state.ranked.rankedPoints : 0;
+    const delta = after - (state.rankedRpBefore || 0);
+    const sign = delta > 0 ? "+" : "";
+    el.result.innerHTML +=
+      `<span class="result__ranked ${delta >= 0 ? "result__ranked--up" : "result__ranked--down"}">`
+      + `${sign}${delta} RP · ${rankedBadgeHtml(state.ranked)}</span>`;
+    return;
+  }
+
+  // Casual : points + bonus de série (bonus de série inclus, malus d'indices compris).
+  if (won) {
     const recorded = state.myScores.find((s) => s.gameId === game.id);
-    // Bonus de série : +5 pts par victoire consécutive au-delà de la 1re (plafond +25),
-    // même formule que score-service. state.currentStreak inclut la victoire courante.
     const streak = state.currentStreak || 0;
     const streakBonus = Math.min(STREAK_BONUS * Math.max(0, streak - 1), STREAK_BONUS_CAP);
     const points = recorded ? recorded.points
@@ -567,7 +643,16 @@ async function endGame() {
   }
 }
 
+// Badge de palier ranked (Bronze III … Maître) + RP, à partir de la réponse standing.
+function rankedBadgeHtml(standing) {
+  if (!standing) return "";
+  const div = standing.division ? ` ${standing.division}` : "";
+  return `<span class="tier tier--${standing.tierKey || "bronze"}">${escapeHtml(standing.tierName || "Bronze")}${div}</span>`
+    + ` <span class="tier__rp">${fmtNum(standing.rankedPoints || 0)} RP</span>`;
+}
+
 function resetGame() {
+  stopRankedTimer();
   state.game = null;
   state.guesses = [];
   state.cells = [];
@@ -851,7 +936,8 @@ function toggleContrast() {
 // --- Statistiques ---
 async function refreshStats() {
   if (!state.player) return;
-  await Promise.all([loadHistory(), loadLeaderboard(), loadPlayerStats(), loadDailyBoard()]);
+  await Promise.all([loadHistory(), loadLeaderboard(), loadPlayerStats(), loadDailyBoard(),
+    loadRankedStanding(), loadRankedLeaderboard()]);
   // Filet : si /stats est momentanément indisponible, on estime le solde de points
   // depuis l'historique déjà chargé — pour ne pas bloquer l'indice sur un hoquet.
   if (!(state.totalPoints > 0) && (state.myScores || []).length) {
@@ -860,6 +946,50 @@ async function refreshStats() {
   }
   updateDailyButton();
   updateHintButton();
+}
+
+// --- Ranked (classement à points de rang) ---
+async function loadRankedStanding() {
+  try {
+    state.ranked = await api(`/api/scores/ranked?playerId=${state.player.id}`);
+  } catch { /* on garde la valeur précédente */ }
+  renderRankedMe();
+}
+
+function renderRankedMe() {
+  const r = state.ranked;
+  if (!r || !el.rankedMe) { if (el.rankedMe) el.rankedMe.innerHTML = ""; return; }
+  const div = r.division ? ` ${r.division}` : "";
+  const next = r.rpNeeded > 0
+    ? `${r.rpInto}/${r.rpNeeded} vers la division suivante`
+    : "palier maximal";
+  el.rankedMe.innerHTML =
+    `<span class="tier tier--${r.tierKey || "bronze"}">${escapeHtml(r.tierName || "Bronze")}${div}</span>
+     <span class="ranked-me__rp">${fmtNum(r.rankedPoints || 0)} RP</span>
+     <span class="ranked-me__meta">${r.gamesPlayed || 0} partie${r.gamesPlayed > 1 ? "s" : ""} · ${r.wins || 0} V`
+    + `${r.rank > 0 ? ` · rang #${r.rank}` : ""} · ${next}</span>`;
+}
+
+async function loadRankedLeaderboard() {
+  let board = [];
+  try { board = await api("/api/scores/ranked/leaderboard"); } catch { board = []; }
+  if (board.length && state.players.length === 0) await loadPlayers();
+  const names = new Map(state.players.map((p) => [p.id, p.username]));
+  if (el.rankedEmpty) el.rankedEmpty.hidden = board.length > 0;
+  el.rankedList.replaceChildren(
+    ...board.map((entry, i) => {
+      const li = document.createElement("li");
+      const me = state.player && entry.playerId === state.player.id;
+      li.className = "lb__row" + (me ? " lb__row--me" : "");
+      const name = names.get(entry.playerId) || `Joueur ${entry.playerId}`;
+      const div = entry.division ? ` ${entry.division}` : "";
+      li.innerHTML =
+        `${rankCell(i)}
+         <span class="lb__name">${escapeHtml(name)}</span>
+         <span class="lb__score"><span class="tier tier--${entry.tierKey || "bronze"}">${escapeHtml(entry.tierName || "Bronze")}${div}</span> · ${fmtNum(entry.rankedPoints || 0)} RP</span>`;
+      return li;
+    })
+  );
 }
 
 async function loadPlayerStats() {
@@ -1335,8 +1465,9 @@ function init() {
     renderFilteredAdminTables();
   });
 
-  el.startBtn.addEventListener("click", () => startGame(false));
-  el.dailyBtn.addEventListener("click", () => startGame(true));
+  el.startBtn.addEventListener("click", () => startGame("normal"));
+  el.dailyBtn.addEventListener("click", () => startGame("daily"));
+  el.rankedBtn.addEventListener("click", () => startGame("ranked"));
   el.hintBtn.addEventListener("click", requestHint);
   el.cancelGameBtn.addEventListener("click", cancelGame);
   document.addEventListener("keydown", onKeydown);

@@ -439,6 +439,66 @@ body {
   font-weight: 700;
   color: var(--green);
 }
+
+/* --- Ranked --- */
+.btn--ranked {
+  color: #fff;
+  background: linear-gradient(135deg, #7b3fe4, #b06ae0);
+  border: none;
+}
+.btn--ranked:hover { filter: brightness(1.08); background: linear-gradient(135deg, #7b3fe4, #b06ae0); }
+
+.ranked-timer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: max-content;
+  margin: 4px auto 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--surface);
+}
+.ranked-timer__label { font-size: .78rem; color: var(--muted); font-weight: 700; }
+.ranked-timer__clock { font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.ranked-timer--urgent { background: rgba(209, 52, 56, .16); }
+.ranked-timer--urgent .ranked-timer__clock { color: #d13438; }
+
+.result__ranked { display: block; margin-top: 6px; font-size: .95rem; font-weight: 800; }
+.result__ranked--up { color: var(--green); }
+.result__ranked--down { color: #d13438; }
+
+/* Badge de palier (Bronze III … Maître) */
+.tier {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: .8rem;
+  font-weight: 800;
+  color: #1a1a1b;
+  vertical-align: middle;
+}
+.tier--bronze  { background: #cd9b6a; }
+.tier--argent  { background: #c4c9d0; }
+.tier--or      { background: #e6c34a; }
+.tier--platine { background: #66c6c6; }
+.tier--diamant { background: #7fd0ff; }
+.tier--maitre  { background: linear-gradient(135deg, #b06ae0, #7b3fe4); color: #fff; }
+.tier__rp { font-weight: 700; color: var(--muted); font-size: .85rem; }
+
+.ranked-me {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: var(--surface);
+  border-radius: 10px;
+}
+.ranked-me:empty { display: none; }
+.ranked-me__rp { font-weight: 800; font-size: 1.05rem; }
+.ranked-me__meta { flex-basis: 100%; font-size: .78rem; color: var(--muted); }
 .actions {
   padding: 12px 0;
   min-height: 24px;
