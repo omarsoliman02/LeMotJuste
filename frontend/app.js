@@ -10,11 +10,10 @@ const GATEWAY =
     ? "http://localhost:8080"
     : location.origin);
 
-// Vue admin : pas d'authentification côté serveur (hors périmètre du projet), donc
-// gardée simple côté client — le bouton est visible mais mène à un écran de connexion
-// dédié qui demande un mot de passe avant d'afficher les données.
-const ADMIN_CODE = "motus-admin";
-const ADMIN_UNLOCK_KEY = "lemotjuste-admin-unlocked";
+// Vue admin : le mot de passe saisi est validé CÔTÉ SERVEUR (les endpoints de liste
+// globale exigent l'en-tête X-Admin-Token). Le mot de passe n'est donc plus en dur dans
+// le code ; on garde seulement le jeton validé en sessionStorage, le temps de l'onglet.
+const ADMIN_TOKEN_KEY = "lemotjuste-admin-token";
 
 const STATUS_LABELS = { IN_PROGRESS: "En cours", WON: "Gagnée", LOST: "Perdue", ABANDONED: "Abandonnée" };
 const STATUS_TAG_CLASS = { IN_PROGRESS: "tag--progress", WON: "tag--won", LOST: "tag--lost", ABANDONED: "tag--abandoned" };
@@ -145,10 +144,13 @@ class ApiError extends Error {
 
 async function api(path, options = {}) {
   let res;
+  // On fusionne les en-têtes pour préserver Content-Type quand l'appelant en ajoute
+  // (ex. X-Admin-Token pour la vue admin).
+  const { headers, ...rest } = options;
   try {
     res = await fetch(GATEWAY + path, {
-      headers: { "Content-Type": "application/json" },
-      ...options,
+      headers: { "Content-Type": "application/json", ...headers },
+      ...rest,
     });
   } catch {
     throw new ApiError(0, "Service injoignable. La passerelle est-elle lancée ?");
@@ -910,8 +912,11 @@ function goHome() {
 }
 
 // --- Vue admin ---
+function getAdminToken() {
+  return sessionStorage.getItem(ADMIN_TOKEN_KEY) || "";
+}
 function isAdminUnlocked() {
-  return sessionStorage.getItem(ADMIN_UNLOCK_KEY) === "1";
+  return !!sessionStorage.getItem(ADMIN_TOKEN_KEY);
 }
 
 function hideAllScreens() {
@@ -938,15 +943,22 @@ function openAdminEntry() {
   el.adminPasswordInput.focus();
 }
 
-function submitAdminLogin(e) {
+async function submitAdminLogin(e) {
   e.preventDefault();
-  if (el.adminPasswordInput.value === ADMIN_CODE) {
-    sessionStorage.setItem(ADMIN_UNLOCK_KEY, "1");
+  const pwd = el.adminPasswordInput.value;
+  el.adminLoginError.hidden = true;
+  setBusy(true, el.adminPasswordInput);
+  try {
+    // Validation CÔTÉ SERVEUR : un endpoint admin renvoie 403 si le jeton est faux.
+    await api("/api/games", { headers: { "X-Admin-Token": pwd } });
+    sessionStorage.setItem(ADMIN_TOKEN_KEY, pwd);
     openAdmin();
-  } else {
+  } catch (err) {
     el.adminLoginError.hidden = false;
     el.adminPasswordInput.value = "";
     el.adminPasswordInput.focus();
+  } finally {
+    setBusy(false, el.adminPasswordInput);
   }
 }
 
@@ -972,12 +984,24 @@ function resultTag(won) {
 const adminData = { players: [], games: [], scores: [], nameOf: (id) => `Joueur ${id}` };
 
 async function loadAdminData() {
-  const [players, games, scores, leaderboard] = await Promise.all([
-    api("/api/players").catch(() => []),
-    api("/api/games").catch(() => []),
-    api("/api/scores").catch(() => []),
-    api("/api/scores/leaderboard").catch(() => []),
-  ]);
+  // Les listes globales (parties, scores) exigent le jeton admin ; les autres sont publiques.
+  const adminOpts = { headers: { "X-Admin-Token": getAdminToken() } };
+  const keepAuthError = (e) => { if (e.status === 403) throw e; return []; };
+  let players, games, scores, leaderboard;
+  try {
+    [players, games, scores, leaderboard] = await Promise.all([
+      api("/api/players").catch(() => []),
+      api("/api/games", adminOpts).catch(keepAuthError),
+      api("/api/scores", adminOpts).catch(keepAuthError),
+      api("/api/scores/leaderboard").catch(() => []),
+    ]);
+  } catch (e) {
+    // Jeton refusé (mauvais mot de passe stocké, ou changé côté serveur) : on redemande.
+    sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+    toast("Accès admin refusé. Reconnecte-toi.");
+    openAdminEntry();
+    return;
+  }
   const names = new Map(players.map((p) => [p.id, p.username]));
   adminData.players = players;
   adminData.games = games;

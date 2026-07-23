@@ -12,21 +12,15 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Le Mot Juste">
 
-  <script>
-    // Applique thème et contraste avant le premier rendu (pas de flash clair/sombre).
-    document.documentElement.dataset.theme =
-      localStorage.getItem("lemotjuste-theme") ||
-      (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-    if (localStorage.getItem("lemotjuste-contrast") === "1") {
-      document.documentElement.dataset.contrast = "high";
-    }
-  </script>
+  <!-- Thème/contraste appliqués avant le premier rendu. Script externe (pas inline)
+       pour autoriser une CSP stricte (script-src 'self') en production. -->
+  <script src="theme.js?v=24"></script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=23">
+  <link rel="stylesheet" href="styles.css?v=24">
 </head>
 <body>
   <div class="app">
@@ -246,6 +240,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="assertive" hidden></div>
 
-  <script src="app.js?v=23"></script>
+  <script src="app.js?v=24"></script>
 </body>
 </html>
