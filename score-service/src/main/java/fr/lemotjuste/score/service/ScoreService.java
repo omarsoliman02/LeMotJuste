@@ -2,13 +2,18 @@ package fr.lemotjuste.score.service;
 
 import fr.lemotjuste.score.dto.LeaderboardEntry;
 import fr.lemotjuste.score.dto.PlayerStatsResponse;
+import fr.lemotjuste.score.dto.RankedResultRequest;
+import fr.lemotjuste.score.dto.RankedStandingResponse;
 import fr.lemotjuste.score.dto.RecordScoreRequest;
 import fr.lemotjuste.score.dto.ScoreResponse;
+import fr.lemotjuste.score.entity.RankedStanding;
 import fr.lemotjuste.score.entity.Score;
+import fr.lemotjuste.score.repository.RankedStandingRepository;
 import fr.lemotjuste.score.repository.ScoreRepository;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -36,10 +41,23 @@ public class ScoreService {
     private static final int STREAK_BONUS_CAP = 25;
     private static final int HINT_COST = 15;
 
-    private final ScoreRepository repository;
+    /**
+     * Barème RANKED (séparé du casual). Victoire : base + bonus « peu d'essais » + bonus de
+     * vitesse (d'autant plus grand qu'on résout tôt avant la limite). Défaite / temps écoulé :
+     * malus fixe. RP planchés à 0. RANKED_REF_SECONDS = même limite que game-service.
+     */
+    private static final int RANKED_WIN_BASE = 20;
+    private static final int RANKED_PER_SPARE_ATTEMPT = 4;
+    private static final int RANKED_SPEED_BONUS_MAX = 16;
+    private static final int RANKED_LOSS_PENALTY = 16;
+    private static final int RANKED_REF_SECONDS = 150;
 
-    public ScoreService(ScoreRepository repository) {
+    private final ScoreRepository repository;
+    private final RankedStandingRepository rankedRepository;
+
+    public ScoreService(ScoreRepository repository, RankedStandingRepository rankedRepository) {
         this.repository = repository;
+        this.rankedRepository = rankedRepository;
     }
 
     @Transactional
@@ -156,5 +174,58 @@ public class ScoreService {
         return repository.findAll().stream()
                 .map(ScoreResponse::from)
                 .toList();
+    }
+
+    // --- Ranked (classement à points de rang, séparé du casual) ---
+
+    /** Applique le résultat d'une partie ranked : met à jour les RP du joueur (plancher 0). */
+    @Transactional
+    public RankedStandingResponse applyRanked(RankedResultRequest request) {
+        RankedStanding standing = rankedRepository.findByPlayerId(request.playerId())
+                .orElseGet(() -> new RankedStanding(request.playerId()));
+        int delta = rankedDelta(request);
+        standing.setRankedPoints(Math.max(0, standing.getRankedPoints() + delta));
+        standing.setGamesPlayed(standing.getGamesPlayed() + 1);
+        if (request.won()) {
+            standing.setWins(standing.getWins() + 1);
+        }
+        standing.setUpdatedAt(Instant.now());
+        return RankedStandingResponse.from(rankedRepository.save(standing), 0);
+    }
+
+    private int rankedDelta(RankedResultRequest request) {
+        if (!request.won()) {
+            return -RANKED_LOSS_PENALTY;
+        }
+        int spare = Math.max(0, MAX_ATTEMPTS - request.attempts());
+        int duration = Math.max(0, request.durationSeconds());
+        int speedBonus = Math.round(
+                RANKED_SPEED_BONUS_MAX * Math.max(0f, RANKED_REF_SECONDS - duration) / RANKED_REF_SECONDS);
+        return RANKED_WIN_BASE + RANKED_PER_SPARE_ATTEMPT * spare + speedBonus;
+    }
+
+    /** Classement ranked d'un joueur (avec son rang). Palier de départ si aucune partie ranked. */
+    @Transactional(readOnly = true)
+    public RankedStandingResponse rankedStanding(Long playerId) {
+        List<RankedStanding> all = rankedRepository
+                .findAllByOrderByRankedPointsDescWinsDescGamesPlayedAsc();
+        for (int i = 0; i < all.size(); i++) {
+            if (all.get(i).getPlayerId().equals(playerId)) {
+                return RankedStandingResponse.from(all.get(i), i + 1);
+            }
+        }
+        return RankedStandingResponse.from(new RankedStanding(playerId), 0);
+    }
+
+    /** Classement ranked général (meilleurs RP d'abord). */
+    @Transactional(readOnly = true)
+    public List<RankedStandingResponse> rankedLeaderboard() {
+        List<RankedStanding> all = rankedRepository
+                .findAllByOrderByRankedPointsDescWinsDescGamesPlayedAsc();
+        List<RankedStandingResponse> out = new ArrayList<>();
+        for (int i = 0; i < all.size(); i++) {
+            out.add(RankedStandingResponse.from(all.get(i), i + 1));
+        }
+        return out;
     }
 }

@@ -44,7 +44,7 @@ class GameServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new GameService(repository, dictionary, playerClient, scoreClient, 6, 2);
+        service = new GameService(repository, dictionary, playerClient, scoreClient, 6, 2, 150);
     }
 
     @Test
@@ -95,7 +95,7 @@ class GameServiceTest {
         given(repository.save(any(Game.class))).willAnswer(invocation -> invocation.getArgument(0));
 
         GameResponse response = service.start(
-                new fr.lemotjuste.game.dto.StartGameRequest(1L, null, true));
+                new fr.lemotjuste.game.dto.StartGameRequest(1L, null, true, null));
 
         assertThat(response.daily()).isTrue();
         assertThat(response.firstLetter()).isEqualTo("S");
@@ -109,7 +109,7 @@ class GameServiceTest {
                 org.mockito.ArgumentMatchers.eq(1L), any())).willReturn(true);
 
         assertThatThrownBy(() -> service.start(
-                new fr.lemotjuste.game.dto.StartGameRequest(1L, null, true)))
+                new fr.lemotjuste.game.dto.StartGameRequest(1L, null, true, null)))
                 .isInstanceOf(DailyAlreadyPlayedException.class);
     }
 

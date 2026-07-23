@@ -51,6 +51,10 @@ public class Game {
     @Column(nullable = false, columnDefinition = "boolean default false not null")
     private boolean daily;
 
+    /** Partie « ranked » : grille aléatoire + timer, met à jour les points de classement (RP). */
+    @Column(nullable = false, columnDefinition = "boolean default false not null")
+    private boolean ranked;
+
     /** Nombre d'indices déjà révélés (plafonné par game.max-hints, malus de points au score). */
     @Column(name = "hints_used", nullable = false, columnDefinition = "integer default 0 not null")
     private int hintsUsed;

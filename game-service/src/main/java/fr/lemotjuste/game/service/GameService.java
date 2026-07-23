@@ -1,6 +1,7 @@
 package fr.lemotjuste.game.service;
 
 import fr.lemotjuste.game.client.PlayerClient;
+import fr.lemotjuste.game.client.RankedResultRequest;
 import fr.lemotjuste.game.client.RecordScoreRequest;
 import fr.lemotjuste.game.client.ScoreClient;
 import fr.lemotjuste.game.dto.GameResponse;
@@ -19,6 +20,7 @@ import fr.lemotjuste.game.exception.PlayerServiceUnavailableException;
 import fr.lemotjuste.game.exception.UnknownPlayerException;
 import fr.lemotjuste.game.repository.GameRepository;
 import feign.FeignException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -46,29 +48,41 @@ public class GameService {
     private final ScoreClient scoreClient;
     private final int maxAttempts;
     private final int maxHints;
+    private final int rankedTimeLimitSeconds;
 
     public GameService(GameRepository repository,
                        Dictionary dictionary,
                        PlayerClient playerClient,
                        ScoreClient scoreClient,
                        @Value("${game.max-attempts:6}") int maxAttempts,
-                       @Value("${game.max-hints:2}") int maxHints) {
+                       @Value("${game.max-hints:2}") int maxHints,
+                       @Value("${game.ranked-time-limit-seconds:150}") int rankedTimeLimitSeconds) {
         this.repository = repository;
         this.dictionary = dictionary;
         this.playerClient = playerClient;
         this.scoreClient = scoreClient;
         this.maxAttempts = maxAttempts;
         this.maxHints = maxHints;
+        this.rankedTimeLimitSeconds = rankedTimeLimitSeconds;
+    }
+
+    private GameResponse toResponse(Game game) {
+        return GameResponse.from(game, rankedTimeLimitSeconds);
     }
 
     @Transactional
     public GameResponse start(StartGameRequest request) {
         verifyPlayerExists(request.playerId());
-        boolean daily = Boolean.TRUE.equals(request.daily());
-        String secretWord = daily ? dailyWordFor(request.playerId()) : randomWordFor(request);
+        boolean ranked = request.isRanked();
+        boolean daily = !ranked && request.isDaily();
+        // Ranked : grille aléatoire (longueur au hasard) + timer ; sinon mot du jour ou partie normale.
+        String secretWord = ranked ? dictionary.randomWord()
+                : daily ? dailyWordFor(request.playerId())
+                : randomWordFor(request);
         Game game = new Game(request.playerId(), secretWord, maxAttempts);
         game.setDaily(daily);
-        return GameResponse.from(repository.save(game));
+        game.setRanked(ranked);
+        return toResponse(repository.save(game));
     }
 
     /**
@@ -93,12 +107,18 @@ public class GameService {
 
     @Transactional(readOnly = true)
     public GameResponse get(Long id) {
-        return GameResponse.from(find(id));
+        return toResponse(find(id));
+    }
+
+    /** Identifiant du joueur propriétaire d'une partie (pour vérifier le jeton avant d'agir). */
+    @Transactional(readOnly = true)
+    public Long ownerOf(Long id) {
+        return find(id).getPlayerId();
     }
 
     @Transactional(readOnly = true)
     public List<GameResponse> getAll() {
-        return repository.findAll().stream().map(GameResponse::from).toList();
+        return repository.findAll().stream().map(this::toResponse).toList();
     }
 
     /**
@@ -112,7 +132,22 @@ public class GameService {
             throw new GameAlreadyFinishedException("La partie " + id + " est déjà terminée.");
         }
         game.setStatus(GameStatus.ABANDONED);
-        return GameResponse.from(game);
+        return toResponse(game);
+    }
+
+    /**
+     * Fin d'une partie ranked par temps écoulé (le client appelle cet endpoint quand le compte
+     * à rebours atteint zéro) : défaite comptée au classement. Idempotent (sans effet si la
+     * partie est déjà terminée ou n'est pas ranked).
+     */
+    @Transactional
+    public GameResponse timeout(Long id) {
+        Game game = find(id);
+        if (game.isRanked() && game.getStatus() == GameStatus.IN_PROGRESS) {
+            game.setStatus(GameStatus.LOST);
+            finishRanked(game);
+        }
+        return toResponse(game);
     }
 
     private int validatedLength(int wordLength) {
@@ -129,6 +164,15 @@ public class GameService {
         Game game = find(id);
         if (game.getStatus() != GameStatus.IN_PROGRESS) {
             throw new GameAlreadyFinishedException("La partie " + id + " est déjà terminée.");
+        }
+
+        // Ranked : au-delà du temps limite, la partie est perdue (anti-triche côté serveur ;
+        // gère aussi un essai soumis juste après la fin du compte à rebours).
+        if (game.isRanked() && elapsedSeconds(game) > rankedTimeLimitSeconds) {
+            game.setStatus(GameStatus.LOST);
+            finishRanked(game);
+            return new GuessResponse(List.of(), game.getStatus(), game.getAttemptsLeft(),
+                    game.getSecretWord());
         }
 
         String secret = game.getSecretWord();
@@ -153,7 +197,11 @@ public class GameService {
         }
 
         if (game.getStatus() != GameStatus.IN_PROGRESS) {
-            recordScore(game);
+            if (game.isRanked()) {
+                finishRanked(game);
+            } else {
+                recordScore(game);
+            }
         }
 
         String solution = game.getStatus() == GameStatus.IN_PROGRESS ? null : secret;
@@ -215,6 +263,23 @@ public class GameService {
                     game.getHintsUsed()));
         } catch (Exception e) {
             log.warn("Score non enregistré pour la partie {} (score-service indisponible ?) : {}",
+                    game.getId(), e.getMessage());
+        }
+    }
+
+    private long elapsedSeconds(Game game) {
+        return Duration.between(game.getCreatedAt(), Instant.now()).getSeconds();
+    }
+
+    /** Enregistrement « best-effort » du résultat ranked (mise à jour des RP). */
+    private void finishRanked(Game game) {
+        boolean won = game.getStatus() == GameStatus.WON;
+        int duration = (int) Math.min(elapsedSeconds(game), rankedTimeLimitSeconds);
+        try {
+            scoreClient.recordRanked(new RankedResultRequest(
+                    game.getPlayerId(), won, maxAttempts - game.getAttemptsLeft(), duration));
+        } catch (Exception e) {
+            log.warn("RP non enregistrés pour la partie ranked {} (score-service indisponible ?) : {}",
                     game.getId(), e.getMessage());
         }
     }

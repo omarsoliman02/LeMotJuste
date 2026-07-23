@@ -39,6 +39,9 @@ game:
   max-attempts: 6
   # Indices par partie (chacun coûte des points, barème dans score-service).
   max-hints: 2
+  # Temps limite d'une partie ranked (secondes) : dépassé => défaite. Sert aussi de référence
+  # au bonus de vitesse (doit rester aligné avec RANKED_REF_SECONDS dans score-service).
+  ranked-time-limit-seconds: 150
   dictionary-path: dictionnaire.txt
   accepted-words-path: mots-valides.txt
   min-word-length: 4

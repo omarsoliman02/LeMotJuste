@@ -13,11 +13,14 @@ public record GameResponse(
         int attemptsLeft,
         GameStatus status,
         boolean daily,
+        boolean ranked,
+        int timeLimitSeconds,
         int hintsUsed,
         Instant createdAt
 ) {
 
-    public static GameResponse from(Game game) {
+    /** @param timeLimitSeconds durée limite ranked (0 pour une partie non ranked). */
+    public static GameResponse from(Game game, int timeLimitSeconds) {
         String secret = game.getSecretWord();
         return new GameResponse(
                 game.getId(),
@@ -27,6 +30,8 @@ public record GameResponse(
                 game.getAttemptsLeft(),
                 game.getStatus(),
                 game.isDaily(),
+                game.isRanked(),
+                game.isRanked() ? timeLimitSeconds : 0,
                 game.getHintsUsed(),
                 game.getCreatedAt()
         );

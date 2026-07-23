@@ -123,4 +123,20 @@ public class GameController {
     public GameResponse abandon(@PathVariable Long id) {
         return service.abandon(id);
     }
+
+    @PostMapping("/{id}/timeout")
+    @Operation(summary = "Temps écoulé (ranked)",
+            description = "Appelé par le client quand le compte à rebours d'une partie ranked "
+                    + "atteint zéro : la partie est perdue et le classement (RP) mis à jour.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Partie clôturée (défaite ranked)"),
+            @ApiResponse(responseCode = "403", description = "Jeton de joueur manquant ou invalide"),
+            @ApiResponse(responseCode = "404", description = "Partie introuvable")
+    })
+    public GameResponse timeout(
+            @RequestHeader(value = "X-Player-Token", required = false) String playerToken,
+            @PathVariable Long id) {
+        playerTokens.requireOwner(playerToken, service.ownerOf(id));
+        return service.timeout(id);
+    }
 }

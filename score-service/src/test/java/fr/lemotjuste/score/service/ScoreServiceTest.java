@@ -5,29 +5,37 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
 import fr.lemotjuste.score.dto.PlayerStatsResponse;
+import fr.lemotjuste.score.dto.RankedResultRequest;
+import fr.lemotjuste.score.dto.RankedStandingResponse;
 import fr.lemotjuste.score.dto.RecordScoreRequest;
 import fr.lemotjuste.score.dto.ScoreResponse;
+import fr.lemotjuste.score.entity.RankedStanding;
 import fr.lemotjuste.score.entity.Score;
+import fr.lemotjuste.score.repository.RankedStandingRepository;
 import fr.lemotjuste.score.repository.ScoreRepository;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-/** Teste le barème de points et le calcul des statistiques (dépôt mocké). */
+/** Teste le barème de points, les statistiques et les points de classement ranked (dépôts mockés). */
 @ExtendWith(MockitoExtension.class)
 class ScoreServiceTest {
 
     @Mock
     private ScoreRepository repository;
 
+    @Mock
+    private RankedStandingRepository rankedRepository;
+
     private ScoreService service;
 
     @BeforeEach
     void setUp() {
-        service = new ScoreService(repository);
+        service = new ScoreService(repository, rankedRepository);
     }
 
     private void savedScoreIsReturned() {
@@ -138,5 +146,35 @@ class ScoreServiceTest {
         assertThat(stats.byLength()).containsExactly(
                 new PlayerStatsResponse.LengthStats(4, 1, 1),
                 new PlayerStatsResponse.LengthStats(6, 3, 2));
+    }
+
+    @Test
+    void rankedWinIncreasesPointsWithSpeedAndAttemptBonus() {
+        given(rankedRepository.findByPlayerId(1L)).willReturn(Optional.empty());
+        given(rankedRepository.save(any(RankedStanding.class)))
+                .willAnswer(invocation -> invocation.getArgument(0));
+
+        // Victoire en 3 essais, 30 s : 20 base + 4×3 essais économisés + bonus de vitesse.
+        RankedStandingResponse resp = service.applyRanked(new RankedResultRequest(1L, true, 3, 30));
+
+        assertThat(resp.rankedPoints()).isEqualTo(45); // 20 + 12 + 13
+        assertThat(resp.wins()).isEqualTo(1);
+        assertThat(resp.gamesPlayed()).isEqualTo(1);
+        assertThat(resp.tierName()).isEqualTo("Bronze");
+        assertThat(resp.division()).isEqualTo("III");
+    }
+
+    @Test
+    void rankedLossFlooredAtZeroForNewPlayer() {
+        given(rankedRepository.findByPlayerId(2L)).willReturn(Optional.empty());
+        given(rankedRepository.save(any(RankedStanding.class)))
+                .willAnswer(invocation -> invocation.getArgument(0));
+
+        // Défaite alors qu'on part de 0 RP : malus mais plancher à 0 (jamais négatif).
+        RankedStandingResponse resp = service.applyRanked(new RankedResultRequest(2L, false, 6, 200));
+
+        assertThat(resp.rankedPoints()).isZero();
+        assertThat(resp.wins()).isZero();
+        assertThat(resp.gamesPlayed()).isEqualTo(1);
     }
 }

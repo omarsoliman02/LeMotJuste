@@ -2,6 +2,8 @@ package fr.lemotjuste.score.controller;
 
 import fr.lemotjuste.score.dto.LeaderboardEntry;
 import fr.lemotjuste.score.dto.PlayerStatsResponse;
+import fr.lemotjuste.score.dto.RankedResultRequest;
+import fr.lemotjuste.score.dto.RankedStandingResponse;
 import fr.lemotjuste.score.dto.RecordScoreRequest;
 import fr.lemotjuste.score.dto.ScoreResponse;
 import fr.lemotjuste.score.security.ApiTokenGuard;
@@ -52,6 +54,33 @@ public class ScoreController {
         tokens.requireInternal(internalToken);
         ScoreResponse created = service.record(request);
         return ResponseEntity.created(URI.create("/api/scores/" + created.id())).body(created);
+    }
+
+    @PostMapping("/ranked")
+    @Operation(summary = "Historiser un résultat ranked",
+            description = "Appelé en OpenFeign par game-service en fin de partie ranked (jeton "
+                    + "interne requis). Met à jour les points de classement (RP) du joueur.")
+    @ApiResponse(responseCode = "200", description = "Classement mis à jour")
+    @ApiResponse(responseCode = "403", description = "Jeton interne manquant ou invalide")
+    public RankedStandingResponse recordRanked(
+            @RequestHeader(value = "X-Internal-Token", required = false) String internalToken,
+            @Valid @RequestBody RankedResultRequest request) {
+        tokens.requireInternal(internalToken);
+        return service.applyRanked(request);
+    }
+
+    @GetMapping("/ranked/leaderboard")
+    @Operation(summary = "Classement ranked",
+            description = "Joueurs par points de classement (RP) décroissants, avec leur palier.")
+    public List<RankedStandingResponse> rankedLeaderboard() {
+        return service.rankedLeaderboard();
+    }
+
+    @GetMapping("/ranked")
+    @Operation(summary = "Classement ranked d'un joueur",
+            description = "RP, palier (Bronze → Maître) et rang du joueur.")
+    public RankedStandingResponse rankedStanding(@RequestParam Long playerId) {
+        return service.rankedStanding(playerId);
     }
 
     @GetMapping(params = "playerId")

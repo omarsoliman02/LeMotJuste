@@ -10,4 +10,8 @@ public interface ScoreClient {
 
     @PostMapping("/api/scores")
     void record(@RequestBody RecordScoreRequest request);
+
+    /** Résultat d'une partie ranked : met à jour les points de classement (RP) du joueur. */
+    @PostMapping("/api/scores/ranked")
+    void recordRanked(@RequestBody RankedResultRequest request);
 }

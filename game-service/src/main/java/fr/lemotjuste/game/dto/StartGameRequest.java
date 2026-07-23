@@ -17,13 +17,23 @@ public record StartGameRequest(
 
         Integer wordLength,
 
-        Boolean daily
+        Boolean daily,
+
+        Boolean ranked
 ) {
     public StartGameRequest(Long playerId) {
-        this(playerId, null, null);
+        this(playerId, null, null, null);
     }
 
     public StartGameRequest(Long playerId, Integer wordLength) {
-        this(playerId, wordLength, null);
+        this(playerId, wordLength, null, null);
+    }
+
+    public boolean isDaily() {
+        return Boolean.TRUE.equals(daily);
+    }
+
+    public boolean isRanked() {
+        return Boolean.TRUE.equals(ranked);
     }
 }
