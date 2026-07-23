@@ -9,6 +9,26 @@
 # `reverse_proxy localhost:8080` (voir README de ce dossier).
 
 lemotjuste.duckdns.org {
+	# --- En-têtes de sécurité (toutes les réponses) ---
+	header {
+		# Content Security Policy : n'autorise que ce dont l'app a besoin.
+		#  - scripts : uniquement du même domaine (aucun script inline) ;
+		#  - styles : même domaine + attributs style inline + Google Fonts (CSS) ;
+		#  - polices : Google Fonts ; images : même domaine + data: (SVG/favicon) ;
+		#  - fetch (connect) : même domaine (l'API est servie sous le même domaine).
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+		# Force HTTPS pendant 1 an (le domaine n'a pas de sous-domaines).
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		# Empêche le MIME-sniffing, le clickjacking et la fuite de referrer.
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Coupe des API navigateur non utilisées.
+		Permissions-Policy "geolocation=(), microphone=(), camera=(), interest-cohort=()"
+		# Ne pas divulguer le logiciel serveur.
+		-Server
+	}
+
 	handle /api/* {
 		reverse_proxy 192.168.49.2:30080
 	}
