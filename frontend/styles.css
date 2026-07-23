@@ -888,6 +888,32 @@ body {
   margin: 4px 0 6px;
 }
 .admin__filter-input { width: auto; flex: 1 1 180px; padding: 8px 12px; font-size: .9rem; }
+.admin__filter-select { width: auto; flex: 0 1 auto; padding: 8px 12px; font-size: .9rem; }
+
+/* Pagination (tables admin) */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 8px 0 4px;
+}
+.pager__btn {
+  font-family: inherit;
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  width: 40px;
+  height: 36px;
+  cursor: pointer;
+}
+.pager__btn:hover:not(:disabled) { background: var(--surface-hover); }
+.pager__btn:disabled { opacity: .4; cursor: default; }
+.pager__info { font-size: .82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .admin__filter-date {
   display: flex;
   align-items: center;

@@ -14,13 +14,13 @@
 
   <!-- Thème/contraste appliqués avant le premier rendu. Script externe (pas inline)
        pour autoriser une CSP stricte (script-src 'self') en production. -->
-  <script src="theme.js?v=28"></script>
+  <script src="theme.js?v=29"></script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=28">
+  <link rel="stylesheet" href="styles.css?v=29">
 </head>
 <body>
   <div class="app">
@@ -167,6 +167,23 @@
         <div class="admin__filters">
           <input class="input admin__filter-input" id="adminFilterPlayer" type="text"
                  placeholder="Filtrer par joueur">
+          <select class="input admin__filter-select" id="adminFilterSize">
+            <option value="">Taille : toutes</option>
+            <option value="4">4 lettres</option>
+            <option value="5">5 lettres</option>
+            <option value="6">6 lettres</option>
+            <option value="7">7 lettres</option>
+            <option value="8">8 lettres</option>
+            <option value="9">9 lettres</option>
+            <option value="10">10 lettres</option>
+          </select>
+          <select class="input admin__filter-select" id="adminFilterStatus">
+            <option value="">Statut : tous</option>
+            <option value="IN_PROGRESS">En cours</option>
+            <option value="WON">Gagnée</option>
+            <option value="LOST">Perdue</option>
+            <option value="ABANDONED">Abandonnée</option>
+          </select>
           <label class="admin__filter-date">Du
             <input type="date" id="adminFilterFrom">
           </label>
@@ -175,13 +192,15 @@
           </label>
           <button class="link-btn" id="adminFilterReset" type="button">Réinitialiser</button>
         </div>
-        <p class="admin__filter-hint">Filtre les tableaux « Parties » et « Scores » ci-dessous, par nom de joueur et/ou par période.</p>
+        <p class="admin__filter-hint">Filtre les tableaux « Parties » et « Scores » : par joueur, taille de grille, statut/résultat et période. Résultats paginés.</p>
 
         <h3 class="admin__section-title">Parties</h3>
         <div class="admin__table-wrap"><table class="admin__table" id="adminGames"></table></div>
+        <div class="pager" id="adminGamesPager" hidden></div>
 
         <h3 class="admin__section-title">Scores</h3>
         <div class="admin__table-wrap"><table class="admin__table" id="adminScores"></table></div>
+        <div class="pager" id="adminScoresPager" hidden></div>
       </section>
     </main>
   </div>
@@ -282,6 +301,6 @@
     <button class="update-bar__btn" id="updateReload" type="button">Mettre à jour</button>
   </div>
 
-  <script src="app.js?v=28"></script>
+  <script src="app.js?v=29"></script>
 </body>
 </html>

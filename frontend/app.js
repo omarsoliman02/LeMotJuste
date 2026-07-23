@@ -168,11 +168,15 @@ const el = {
   adminCards: $("adminCards"),
   adminLeaderboard: $("adminLeaderboard"),
   adminFilterPlayer: $("adminFilterPlayer"),
+  adminFilterSize: $("adminFilterSize"),
+  adminFilterStatus: $("adminFilterStatus"),
   adminFilterFrom: $("adminFilterFrom"),
   adminFilterTo: $("adminFilterTo"),
   adminFilterReset: $("adminFilterReset"),
   adminGames: $("adminGames"),
+  adminGamesPager: $("adminGamesPager"),
   adminScores: $("adminScores"),
+  adminScoresPager: $("adminScoresPager"),
   toast: $("toast"),
   updateBar: $("updateBar"),
   updateReload: $("updateReload"),
@@ -317,6 +321,32 @@ async function enterAs(player) {
   resetGame();
   showPlay();
   await refreshStats();
+  maybeEasterEgg();
+}
+
+// --- Easter eggs (temporaire) : clin d'œil caché pour quelques prénoms, selon la perf. ---
+const EASTER_EGGS = {
+  lud:     (c) => `👑 Lud le boss ! ${c.wins} victoire${c.wins > 1 ? "s" : ""} — laisses-en aux autres.`,
+  loly:    (c) => `🌸 Loly ! ${c.rate}% de réussite, tranquille la reine.`,
+  lahcene: (c) => `🐐 Lahcène la légende, ${fmtNum(c.pts)} pts au compteur.`,
+  djena:   (c) => `✨ Djena ! Série de ${c.streak}, tu chauffes doucement.`,
+  omar:    (c) => `🚀 Omar l'organisateur — ${c.played} partie${c.played > 1 ? "s" : ""}, on t'observe.`,
+};
+function maybeEasterEgg() {
+  if (!state.player) return;
+  const key = state.player.username.trim().toLowerCase();
+  const joke = EASTER_EGGS[key];
+  if (!joke) return;
+  const scores = state.myScores || [];
+  const played = scores.length;
+  const wins = scores.filter((s) => s.won).length;
+  const ctx = {
+    played, wins,
+    rate: played ? Math.round((wins / played) * 100) : 0,
+    streak: state.currentStreak || 0,
+    pts: state.totalPoints || 0,
+  };
+  toast(joke(ctx));
 }
 
 // Déconnexion : abandonne la partie en cours, efface la session et revient à l'écran de
@@ -1266,8 +1296,14 @@ async function loadAdminData() {
 /** Filtre les tableaux Parties/Scores par nom de joueur et par période, entièrement côté client
  *  (toutes les données sont déjà chargées) — répond à l'exigence « rechercher les parties et les
  *  résultats sur des critères tels que la date, le joueur ». */
-function renderFilteredAdminTables() {
+const ADMIN_PAGE_SIZE = 25;
+const adminPage = { games: 1, scores: 1 };
+
+function renderFilteredAdminTables(resetPage = false) {
+  if (resetPage) { adminPage.games = 1; adminPage.scores = 1; }
   const query = el.adminFilterPlayer.value.trim().toLowerCase();
+  const size = el.adminFilterSize.value ? Number(el.adminFilterSize.value) : null;
+  const status = el.adminFilterStatus.value; // "", IN_PROGRESS, WON, LOST, ABANDONED
   const from = el.adminFilterFrom.value ? new Date(el.adminFilterFrom.value) : null;
   const to = el.adminFilterTo.value ? new Date(el.adminFilterTo.value + "T23:59:59") : null;
 
@@ -1277,15 +1313,47 @@ function renderFilteredAdminTables() {
     const date = new Date(iso);
     return (!from || date >= from) && (!to || date <= to);
   };
+  // Le statut s'applique aux parties ; côté scores, WON/LOST => gagné/perdu, tandis
+  // qu'« en cours »/« abandonnée » ne produisent aucun score.
+  const scoreWon = status === "WON" ? true : status === "LOST" ? false : null;
+  const statusExcludesScores = status === "IN_PROGRESS" || status === "ABANDONED";
 
-  const games = adminData.games.filter((g) => matchesPlayer(g.playerId) && matchesDate(g.createdAt));
-  const scores = adminData.scores.filter((s) => matchesPlayer(s.playerId) && matchesDate(s.playedAt));
+  const games = adminData.games.filter((g) =>
+    matchesPlayer(g.playerId) && matchesDate(g.createdAt)
+    && (size === null || g.wordLength === size)
+    && (!status || g.status === status));
+  const scores = adminData.scores.filter((s) =>
+    matchesPlayer(s.playerId) && matchesDate(s.playedAt)
+    && (size === null || s.word.length === size)
+    && !statusExcludesScores
+    && (scoreWon === null || s.won === scoreWon));
 
-  renderAdminTable(el.adminGames, ["Joueur", "Taille de grille", "Statut", "Créée le"],
+  renderPagedTable(el.adminGames, el.adminGamesPager, "games",
+    ["Joueur", "Taille de grille", "Statut", "Créée le"],
     games.map((g) => [adminData.nameOf(g.playerId), g.wordLength, statusTag(g.status), formatDate(g.createdAt)]));
 
-  renderAdminTable(el.adminScores, ["Joueur", "Résultat", "Essais", "Mot", "Joué le"],
+  renderPagedTable(el.adminScores, el.adminScoresPager, "scores",
+    ["Joueur", "Résultat", "Essais", "Mot", "Joué le"],
     scores.map((s) => [adminData.nameOf(s.playerId), resultTag(s.won), s.attempts, s.word, formatDate(s.playedAt)]));
+}
+
+// Affiche une page du tableau + un pager (précédent / suivant) si nécessaire.
+function renderPagedTable(table, pagerEl, key, headers, rows) {
+  const pages = Math.max(1, Math.ceil(rows.length / ADMIN_PAGE_SIZE));
+  if (adminPage[key] > pages) adminPage[key] = pages;
+  const page = adminPage[key];
+  renderAdminTable(table, headers, rows.slice((page - 1) * ADMIN_PAGE_SIZE, page * ADMIN_PAGE_SIZE));
+  if (rows.length <= ADMIN_PAGE_SIZE) { pagerEl.hidden = true; return; }
+  pagerEl.hidden = false;
+  pagerEl.innerHTML =
+    `<button class="pager__btn" data-dir="-1" ${page <= 1 ? "disabled" : ""} aria-label="Page précédente">‹</button>
+     <span class="pager__info">Page ${page} / ${pages} · ${fmtNum(rows.length)} lignes</span>
+     <button class="pager__btn" data-dir="1" ${page >= pages ? "disabled" : ""} aria-label="Page suivante">›</button>`;
+  pagerEl.querySelectorAll(".pager__btn").forEach((b) =>
+    b.addEventListener("click", () => {
+      adminPage[key] = Math.min(pages, Math.max(1, page + Number(b.dataset.dir)));
+      renderFilteredAdminTables();
+    }));
 }
 
 // Icônes ligne (même style que les pictogrammes de l'accueil) plutôt que des emojis.
@@ -1455,14 +1523,19 @@ function init() {
   });
   el.closeAdmin.addEventListener("click", closeAdminView);
   el.refreshAdmin.addEventListener("click", loadAdminData);
-  el.adminFilterPlayer.addEventListener("input", renderFilteredAdminTables);
-  el.adminFilterFrom.addEventListener("change", renderFilteredAdminTables);
-  el.adminFilterTo.addEventListener("change", renderFilteredAdminTables);
+  const onFilterChange = () => renderFilteredAdminTables(true);
+  el.adminFilterPlayer.addEventListener("input", onFilterChange);
+  el.adminFilterSize.addEventListener("change", onFilterChange);
+  el.adminFilterStatus.addEventListener("change", onFilterChange);
+  el.adminFilterFrom.addEventListener("change", onFilterChange);
+  el.adminFilterTo.addEventListener("change", onFilterChange);
   el.adminFilterReset.addEventListener("click", () => {
     el.adminFilterPlayer.value = "";
+    el.adminFilterSize.value = "";
+    el.adminFilterStatus.value = "";
     el.adminFilterFrom.value = "";
     el.adminFilterTo.value = "";
-    renderFilteredAdminTables();
+    renderFilteredAdminTables(true);
   });
 
   el.startBtn.addEventListener("click", () => startGame("normal"));
