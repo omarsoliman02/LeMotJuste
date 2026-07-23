@@ -14,3 +14,9 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: false
+
+# Secret du jeton de session joueur (HMAC). DOIT être identique côté game-service, qui
+# vérifie le jeton pour interdire de démarrer une partie à la place d'un autre.
+# Valeur de dev par défaut, à surcharger par variable d'environnement en prod.
+player:
+  token-secret: ${PLAYER_TOKEN_SECRET:lemotjuste-player-token-secret}

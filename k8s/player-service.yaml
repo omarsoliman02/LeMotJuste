@@ -44,6 +44,11 @@ spec:
                 secretKeyRef:
                   name: postgres-secret
                   key: POSTGRES_PASSWORD
+            - name: PLAYER_TOKEN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: PLAYER_TOKEN_SECRET
           resources:
             requests:
               cpu: 100m

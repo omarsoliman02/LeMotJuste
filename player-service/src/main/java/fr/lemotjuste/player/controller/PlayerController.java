@@ -1,6 +1,7 @@
 package fr.lemotjuste.player.controller;
 
 import fr.lemotjuste.player.dto.AuthRequest;
+import fr.lemotjuste.player.dto.AuthResponse;
 import fr.lemotjuste.player.dto.ChangePasswordRequest;
 import fr.lemotjuste.player.dto.CreatePlayerRequest;
 import fr.lemotjuste.player.dto.PlayerResponse;
@@ -55,7 +56,7 @@ public class PlayerController {
             @ApiResponse(responseCode = "400", description = "Requête invalide"),
             @ApiResponse(responseCode = "401", description = "Identifiants invalides")
     })
-    public PlayerResponse authenticate(@Valid @RequestBody AuthRequest request) {
+    public AuthResponse authenticate(@Valid @RequestBody AuthRequest request) {
         return service.authenticate(request);
     }
 

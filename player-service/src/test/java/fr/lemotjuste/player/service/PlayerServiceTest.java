@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import fr.lemotjuste.player.dto.AuthRequest;
+import fr.lemotjuste.player.dto.AuthResponse;
 import fr.lemotjuste.player.dto.ChangePasswordRequest;
 import fr.lemotjuste.player.dto.CreatePlayerRequest;
 import fr.lemotjuste.player.dto.PlayerResponse;
@@ -16,6 +17,7 @@ import fr.lemotjuste.player.exception.InvalidCredentialsException;
 import fr.lemotjuste.player.exception.PlayerNotFoundException;
 import fr.lemotjuste.player.exception.UsernameAlreadyExistsException;
 import fr.lemotjuste.player.repository.PlayerRepository;
+import fr.lemotjuste.player.security.PlayerTokenService;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,20 +33,31 @@ class PlayerServiceTest {
     @Mock
     private PlayerRepository repository;
 
-    // Encodeur réel : les tests vérifient le vrai hachage/comparaison BCrypt.
+    // Encodeur et service de jeton réels : les tests vérifient le vrai hachage BCrypt et
+    // qu'un jeton de session est bien émis à la connexion.
     private final PasswordEncoder encoder = new BCryptPasswordEncoder();
+    private final PlayerTokenService tokenService = new PlayerTokenService("secret-de-test");
 
     private PlayerService service;
 
     @BeforeEach
     void setUp() {
-        service = new PlayerService(repository, encoder);
+        service = new PlayerService(repository, encoder, tokenService);
+    }
+
+    /** Simule un save qui attribue un identifiant (nécessaire pour émettre le jeton HMAC). */
+    private static Player saveWithId(org.mockito.invocation.InvocationOnMock invocation) {
+        Player p = invocation.getArgument(0);
+        if (p.getId() == null) {
+            p.setId(42L);
+        }
+        return p;
     }
 
     @Test
     void createsPlayerWhenUsernameIsFree() {
         given(repository.existsByUsername("alice")).willReturn(false);
-        given(repository.save(any(Player.class))).willAnswer(invocation -> invocation.getArgument(0));
+        given(repository.save(any(Player.class))).willAnswer(PlayerServiceTest::saveWithId);
 
         PlayerResponse response = service.create(new CreatePlayerRequest("alice"));
 
@@ -70,18 +83,21 @@ class PlayerServiceTest {
     @Test
     void authenticatesExistingPlayerWithCorrectPassword() {
         Player bob = new Player("bob");
+        bob.setId(1L);
         bob.setPasswordHash(encoder.encode("secret"));
         given(repository.findByUsername("bob")).willReturn(Optional.of(bob));
 
-        PlayerResponse response = service.authenticate(new AuthRequest("bob", "secret"));
+        AuthResponse response = service.authenticate(new AuthRequest("bob", "secret"));
 
         assertThat(response.username()).isEqualTo("bob");
+        assertThat(response.token()).isNotBlank();
         verify(repository, never()).save(any());
     }
 
     @Test
     void rejectsExistingPlayerWithWrongPassword() {
         Player bob = new Player("bob");
+        bob.setId(1L);
         bob.setPasswordHash(encoder.encode("secret"));
         given(repository.findByUsername("bob")).willReturn(Optional.of(bob));
 
@@ -93,11 +109,12 @@ class PlayerServiceTest {
     void migratesLegacyPlayerOnFirstLoginWhenPasswordIsPseudo() {
         Player legacy = new Player("carole"); // pas de hachage : joueur d'avant les comptes
         given(repository.findByUsername("carole")).willReturn(Optional.of(legacy));
-        given(repository.save(any(Player.class))).willAnswer(invocation -> invocation.getArgument(0));
+        given(repository.save(any(Player.class))).willAnswer(PlayerServiceTest::saveWithId);
 
-        PlayerResponse response = service.authenticate(new AuthRequest("carole", "carole"));
+        AuthResponse response = service.authenticate(new AuthRequest("carole", "carole"));
 
         assertThat(response.username()).isEqualTo("carole");
+        assertThat(response.token()).isNotBlank();
         // Le hachage a été renseigné et correspond bien au pseudo (migration douce).
         assertThat(legacy.getPasswordHash()).isNotNull();
         assertThat(encoder.matches("carole", legacy.getPasswordHash())).isTrue();
@@ -116,11 +133,12 @@ class PlayerServiceTest {
     @Test
     void createsAccountWhenUsernameUnknownAndPasswordEqualsUsername() {
         given(repository.findByUsername("david")).willReturn(Optional.empty());
-        given(repository.save(any(Player.class))).willAnswer(invocation -> invocation.getArgument(0));
+        given(repository.save(any(Player.class))).willAnswer(PlayerServiceTest::saveWithId);
 
-        PlayerResponse response = service.authenticate(new AuthRequest("david", "david"));
+        AuthResponse response = service.authenticate(new AuthRequest("david", "david"));
 
         assertThat(response.username()).isEqualTo("david");
+        assertThat(response.token()).isNotBlank();
     }
 
     @Test
@@ -135,9 +153,10 @@ class PlayerServiceTest {
     @Test
     void changesPasswordAfterVerifyingCurrent() {
         Player bob = new Player("bob");
+        bob.setId(1L);
         bob.setPasswordHash(encoder.encode("ancien"));
         given(repository.findById(1L)).willReturn(Optional.of(bob));
-        given(repository.save(any(Player.class))).willAnswer(invocation -> invocation.getArgument(0));
+        given(repository.save(any(Player.class))).willAnswer(PlayerServiceTest::saveWithId);
 
         service.changePassword(1L, new ChangePasswordRequest("ancien", "nouveau-mdp"));
 
@@ -147,6 +166,7 @@ class PlayerServiceTest {
     @Test
     void rejectsChangePasswordWhenCurrentIsWrong() {
         Player bob = new Player("bob");
+        bob.setId(1L);
         bob.setPasswordHash(encoder.encode("ancien"));
         given(repository.findById(1L)).willReturn(Optional.of(bob));
 

@@ -6,6 +6,7 @@ import fr.lemotjuste.game.dto.GuessResponse;
 import fr.lemotjuste.game.dto.HintResponse;
 import fr.lemotjuste.game.dto.StartGameRequest;
 import fr.lemotjuste.game.security.ApiTokenGuard;
+import fr.lemotjuste.game.security.PlayerTokenGuard;
 import fr.lemotjuste.game.service.GameService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -30,10 +31,12 @@ public class GameController {
 
     private final GameService service;
     private final ApiTokenGuard tokens;
+    private final PlayerTokenGuard playerTokens;
 
-    public GameController(GameService service, ApiTokenGuard tokens) {
+    public GameController(GameService service, ApiTokenGuard tokens, PlayerTokenGuard playerTokens) {
         this.service = service;
         this.tokens = tokens;
+        this.playerTokens = playerTokens;
     }
 
     @PostMapping
@@ -46,10 +49,16 @@ public class GameController {
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Partie démarrée"),
             @ApiResponse(responseCode = "400", description = "Longueur demandée invalide"),
+            @ApiResponse(responseCode = "403", description = "Jeton de joueur manquant ou invalide (compte usurpé)"),
             @ApiResponse(responseCode = "404", description = "Joueur inconnu (vérifié auprès du player-service)"),
             @ApiResponse(responseCode = "409", description = "Mot du jour déjà tenté aujourd'hui")
     })
-    public ResponseEntity<GameResponse> start(@Valid @RequestBody StartGameRequest request) {
+    public ResponseEntity<GameResponse> start(
+            @RequestHeader(value = "X-Player-Token", required = false) String playerToken,
+            @Valid @RequestBody StartGameRequest request) {
+        // Empêche de démarrer une partie (et donc de gagner/farmer) à la place d'un autre :
+        // le jeton doit correspondre au playerId demandé.
+        playerTokens.requireOwner(playerToken, request.playerId());
         GameResponse created = service.start(request);
         return ResponseEntity.created(URI.create("/api/games/" + created.id())).body(created);
     }

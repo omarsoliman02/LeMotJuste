@@ -54,6 +54,11 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: ADMIN_API_TOKEN
+            - name: PLAYER_TOKEN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: PLAYER_TOKEN_SECRET
           # PLAYER_SERVICE_URL / SCORE_SERVICE_URL (Feign) viennent de la ConfigMap app-config.
           envFrom:
             - configMapRef:

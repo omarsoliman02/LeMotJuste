@@ -1,6 +1,7 @@
 package fr.lemotjuste.player.service;
 
 import fr.lemotjuste.player.dto.AuthRequest;
+import fr.lemotjuste.player.dto.AuthResponse;
 import fr.lemotjuste.player.dto.ChangePasswordRequest;
 import fr.lemotjuste.player.dto.CreatePlayerRequest;
 import fr.lemotjuste.player.dto.PlayerResponse;
@@ -9,6 +10,7 @@ import fr.lemotjuste.player.exception.InvalidCredentialsException;
 import fr.lemotjuste.player.exception.PlayerNotFoundException;
 import fr.lemotjuste.player.exception.UsernameAlreadyExistsException;
 import fr.lemotjuste.player.repository.PlayerRepository;
+import fr.lemotjuste.player.security.PlayerTokenService;
 import java.util.List;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,10 +21,13 @@ public class PlayerService {
 
     private final PlayerRepository repository;
     private final PasswordEncoder passwordEncoder;
+    private final PlayerTokenService tokenService;
 
-    public PlayerService(PlayerRepository repository, PasswordEncoder passwordEncoder) {
+    public PlayerService(PlayerRepository repository, PasswordEncoder passwordEncoder,
+                         PlayerTokenService tokenService) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
+        this.tokenService = tokenService;
     }
 
     @Transactional
@@ -47,7 +52,7 @@ public class PlayerService {
      * Échec → 401, sans révéler si le pseudo existe.
      */
     @Transactional
-    public PlayerResponse authenticate(AuthRequest request) {
+    public AuthResponse authenticate(AuthRequest request) {
         Player player = repository.findByUsername(request.username()).orElse(null);
 
         if (player == null) {
@@ -58,7 +63,7 @@ public class PlayerService {
             }
             Player created = new Player(request.username());
             created.setPasswordHash(passwordEncoder.encode(request.username()));
-            return PlayerResponse.from(repository.save(created));
+            return authResponse(repository.save(created));
         }
 
         if (player.getPasswordHash() == null) {
@@ -68,13 +73,17 @@ public class PlayerService {
                         "Identifiants invalides. Ton mot de passe initial est ton pseudo.");
             }
             player.setPasswordHash(passwordEncoder.encode(request.password()));
-            return PlayerResponse.from(repository.save(player));
+            return authResponse(repository.save(player));
         }
 
         if (!passwordEncoder.matches(request.password(), player.getPasswordHash())) {
             throw new InvalidCredentialsException("Identifiants invalides.");
         }
-        return PlayerResponse.from(player);
+        return authResponse(player);
+    }
+
+    private AuthResponse authResponse(Player player) {
+        return AuthResponse.from(player, tokenService.tokenFor(player.getId()));
     }
 
     /** Le joueur connecté change son mot de passe (vérification du mot de passe actuel). */

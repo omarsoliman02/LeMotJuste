@@ -29,6 +29,11 @@ internal:
 admin:
   api-token: ${ADMIN_API_TOKEN:motus-admin}
 
+# Secret du jeton de session joueur (HMAC). DOIT être identique côté player-service (qui
+# émet le jeton) pour vérifier qu'on ne démarre pas une partie à la place d'un autre.
+player:
+  token-secret: ${PLAYER_TOKEN_SECRET:lemotjuste-player-token-secret}
+
 # Paramètres du jeu Motus.
 game:
   max-attempts: 6
