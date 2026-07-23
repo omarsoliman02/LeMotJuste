@@ -310,6 +310,25 @@ async function enterAs(player) {
   await refreshStats();
 }
 
+// Déconnexion : abandonne la partie en cours, efface la session et revient à l'écran de
+// connexion. `message` (optionnel) s'affiche en rouge (ex. jeton de session expiré).
+async function logout(message) {
+  await abandonCurrentGame();
+  clearSession();
+  state.player = null;
+  state.game = null;
+  state.totalPoints = 0;
+  state.currentStreak = 0;
+  el.changePlayer.hidden = true;
+  el.openStats.hidden = true;
+  el.settingsAccount.hidden = true;
+  el.usernameInput.value = "";
+  el.passwordInput.value = "";
+  loadPlayers().then(renderPlayerChips);
+  showStart();
+  if (message) showSigninError(message);
+}
+
 // --- Partie ---
 async function startGame(daily = false) {
   if (state.busy || !state.player) return;
@@ -321,6 +340,7 @@ async function startGame(daily = false) {
     else if (state.wordLength) body.wordLength = state.wordLength;
     const game = await api("/api/games", {
       method: "POST",
+      headers: { "X-Player-Token": state.player.token || "" },
       body: JSON.stringify(body),
     });
     state.game = game;
@@ -342,6 +362,9 @@ async function startGame(daily = false) {
   } catch (e) {
     // 409 : mot du jour déjà tenté aujourd'hui — on masque le bouton et on informe.
     if (daily && e.status === 409) { markDailyPlayed(); updateDailyButton(); }
+    // 403 : jeton de session absent/invalide (ex. connecté avant l'ajout des jetons, ou
+    // secret changé) — on redemande une connexion proprement.
+    else if (e.status === 403) { logout("Session expirée. Reconnecte-toi pour jouer."); return; }
     toast(e.message);
   } finally {
     setBusy(false, button);
@@ -1280,23 +1303,9 @@ function init() {
     }
   });
 
-  // « Déconnexion » : abandonne la partie en cours, efface la session et revient à l'écran
-  // de connexion (il faudra le mot de passe pour se reconnecter).
-  el.changePlayer.addEventListener("click", async () => {
-    await abandonCurrentGame();
-    clearSession();
-    state.player = null;
-    state.game = null;
-    state.totalPoints = 0;
-    state.currentStreak = 0;
-    el.changePlayer.hidden = true;
-    el.openStats.hidden = true;
-    el.settingsAccount.hidden = true;
-    el.usernameInput.value = "";
-    el.passwordInput.value = "";
-    loadPlayers().then(renderPlayerChips);
-    showStart();
-  });
+  // « Déconnexion » : efface la session et revient à l'écran de connexion (il faudra le
+  // mot de passe pour se reconnecter).
+  el.changePlayer.addEventListener("click", () => logout());
 
   el.openStats.addEventListener("click", openStats);
   el.statsModal.addEventListener("click", (e) => {
@@ -1335,6 +1344,11 @@ function init() {
   // Réglages : mode sombre et contraste élevé (persistés, appliqués via <html data-*>).
   el.openSettings.addEventListener("click", () => {
     refreshSettingsToggles();
+    // Repart d'un formulaire de mot de passe vierge : sinon l'ancien message
+    // « Mot de passe changé » resterait affiché à chaque réouverture des réglages.
+    el.changePwdForm.reset();
+    el.changePwdMsg.hidden = true;
+    el.changePwdMsg.classList.remove("pwd-form__msg--ok");
     el.settingsModal.hidden = false;
   });
   el.settingsModal.addEventListener("click", (e) => {
