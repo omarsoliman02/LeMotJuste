@@ -734,14 +734,43 @@ body {
 .history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .history__item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
+  flex-direction: column;
+  padding: 0;
   background: var(--surface);
   border-radius: 8px;
+  overflow: hidden;
 }
-.history__word { font-weight: 700; letter-spacing: .06em; }
-.history__meta { font-size: .8rem; color: var(--muted); }
+.history__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  font-family: inherit;
+  text-align: left;
+  color: var(--text);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.history__head:hover { background: var(--surface-hover); }
+.history__word { display: block; font-weight: 700; letter-spacing: .06em; }
+.history__meta { display: block; font-size: .8rem; color: var(--muted); }
+
+/* Rejeu des essais d'une partie (déplié depuis l'historique). */
+.replay { padding: 4px 12px 12px; display: flex; flex-direction: column; gap: 5px; }
+.replay__row { display: flex; gap: 5px; }
+.replay__tile {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 5px;
+  font-weight: 800;
+  font-size: .9rem;
+}
+.replay__msg { font-size: .82rem; color: var(--muted); }
 .tag {
   font-size: .72rem;
   font-weight: 700;

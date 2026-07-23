@@ -59,6 +59,11 @@ public class Game {
     @Column(name = "hints_used", nullable = false, columnDefinition = "integer default 0 not null")
     private int hintsUsed;
 
+    /** Essais validés (mots normalisés, séparés par des virgules) : permet de rejouer ses
+     *  tentatives dans l'historique. NULLABLE (parties d'avant la fonctionnalité). */
+    @Column(columnDefinition = "text")
+    private String guesses;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

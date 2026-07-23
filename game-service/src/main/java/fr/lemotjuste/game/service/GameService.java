@@ -190,6 +190,9 @@ public class GameService {
 
         List<LetterResult> letters = GuessEvaluator.evaluate(secret, guess);
         game.decrementAttempts();
+        // Mémorise l'essai (pour rejouer ses tentatives dans l'historique).
+        game.setGuesses(game.getGuesses() == null || game.getGuesses().isEmpty()
+                ? guess : game.getGuesses() + "," + guess);
         if (secret.equals(guess)) {
             game.setStatus(GameStatus.WON);
         } else if (game.getAttemptsLeft() == 0) {

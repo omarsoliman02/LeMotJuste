@@ -1132,20 +1132,71 @@ async function loadHistory() {
     ...scores.map((s) => {
       const li = document.createElement("li");
       li.className = "history__item";
-      // `points` arrive du score-service ; repli sur le calcul local si le service
-      // tourne encore dans une version qui ne l'expose pas.
       const points = s.points ?? pointsFor(s.won, s.attempts, s.word.length);
-      const left = document.createElement("div");
-      left.innerHTML =
-        `<div class="history__word">${escapeHtml(s.word)}</div>
-         <div class="history__meta">${s.daily ? "Mot du jour · " : ""}${s.attempts} essai${s.attempts > 1 ? "s" : ""}${s.won ? ` · +${fmtNum(points)} pts` : ""}, ${formatDate(s.playedAt)}</div>`;
-      const tag = document.createElement("span");
-      tag.className = "tag " + (s.won ? "tag--won" : "tag--lost");
-      tag.textContent = s.won ? "Gagné" : "Perdu";
-      li.append(left, tag);
+      // En-tête cliquable (mot, résumé, résultat) : déplie le rejeu de mes essais.
+      const head = document.createElement("button");
+      head.type = "button";
+      head.className = "history__head";
+      head.innerHTML =
+        `<span>
+           <span class="history__word">${escapeHtml(s.word)}</span>
+           <span class="history__meta">${s.daily ? "Mot du jour · " : ""}${s.attempts} essai${s.attempts > 1 ? "s" : ""}${s.won ? ` · +${fmtNum(points)} pts` : ""}, ${formatDate(s.playedAt)}</span>
+         </span>
+         <span class="tag ${s.won ? "tag--won" : "tag--lost"}">${s.won ? "Gagné" : "Perdu"}</span>`;
+      const replay = document.createElement("div");
+      replay.className = "replay";
+      replay.hidden = true;
+      let loaded = false;
+      head.addEventListener("click", async () => {
+        replay.hidden = !replay.hidden;
+        if (loaded || replay.hidden) return;
+        loaded = true;
+        replay.innerHTML = '<span class="replay__msg">Chargement…</span>';
+        try {
+          const game = await api(`/api/games/${s.gameId}`);
+          renderReplay(replay, game.guesses || [], s.word);
+        } catch {
+          replay.innerHTML = '<span class="replay__msg">Essais indisponibles.</span>';
+        }
+      });
+      li.append(head, replay);
       return li;
     })
   );
+}
+
+// Recolore un essai façon Motus (bien placé / présent / absent), gestion des doublons.
+// Les mots (essai + solution) sont déjà normalisés (majuscules, sans accents) côté serveur.
+function evalGuess(guess, answer) {
+  const res = Array(guess.length).fill("absent");
+  const counts = {};
+  for (const ch of answer) counts[ch] = (counts[ch] || 0) + 1;
+  for (let i = 0; i < guess.length; i++) {
+    if (guess[i] === answer[i]) { res[i] = "correct"; counts[guess[i]]--; }
+  }
+  for (let i = 0; i < guess.length; i++) {
+    if (res[i] !== "correct" && counts[guess[i]] > 0) { res[i] = "present"; counts[guess[i]]--; }
+  }
+  return res;
+}
+
+function renderReplay(container, guesses, answer) {
+  if (!guesses.length) {
+    container.innerHTML = '<span class="replay__msg">Aucun essai enregistré (partie d\'avant la fonctionnalité).</span>';
+    return;
+  }
+  container.replaceChildren(...guesses.map((g) => {
+    const row = document.createElement("div");
+    row.className = "replay__row";
+    const st = evalGuess(g, answer);
+    for (let i = 0; i < g.length; i++) {
+      const tile = document.createElement("span");
+      tile.className = `replay__tile tile--${st[i]}`;
+      tile.textContent = g[i];
+      row.append(tile);
+    }
+    return row;
+  }));
 }
 
 async function loadLeaderboard() {
