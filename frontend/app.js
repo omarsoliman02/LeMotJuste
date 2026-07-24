@@ -150,6 +150,7 @@ const el = {
   changePwdSubmit: $("changePwdSubmit"),
   historyList: $("historyList"),
   historyEmpty: $("historyEmpty"),
+  historyPager: $("historyPager"),
   leaderboardList: $("leaderboardList"),
   leaderboardEmpty: $("leaderboardEmpty"),
   rankedMe: $("rankedMe"),
@@ -638,8 +639,11 @@ async function endGame(timedOut = false) {
   const used = MAX_ATTEMPTS - game.attemptsLeft;
   el.result.hidden = false;
   if (timedOut) {
-    el.result.innerHTML = `${ICON_CLOCK} <b>Temps écoulé !</b> Partie classée perdue.`;
-    toast("Temps écoulé");
+    const sol = (state.game && state.game.solution) || "";
+    el.result.innerHTML = sol
+      ? `${ICON_CLOCK} <b>Temps écoulé !</b> Le mot était <b>${escapeHtml(sol)}</b>.`
+      : `${ICON_CLOCK} <b>Temps écoulé !</b> Partie classée perdue.`;
+    toast(sol ? `Le mot était ${sol}` : "Temps écoulé");
   } else {
     el.result.innerHTML = won
       ? `Bien joué, trouvé en ${used} essai${used > 1 ? "s" : ""}.`
@@ -1121,48 +1125,79 @@ async function loadDailyBoard() {
   );
 }
 
+const HISTORY_PAGE_SIZE = 10;
+let historyPage = 1;
+
 async function loadHistory() {
   let scores = [];
   try {
     scores = await api(`/api/scores?playerId=${state.player.id}`);
   } catch { scores = []; }
   state.myScores = scores;
+  historyPage = 1;
   el.historyEmpty.hidden = scores.length > 0;
-  el.historyList.replaceChildren(
-    ...scores.map((s) => {
-      const li = document.createElement("li");
-      li.className = "history__item";
-      const points = s.points ?? pointsFor(s.won, s.attempts, s.word.length);
-      // En-tête cliquable (mot, résumé, résultat) : déplie le rejeu de mes essais.
-      const head = document.createElement("button");
-      head.type = "button";
-      head.className = "history__head";
-      head.innerHTML =
-        `<span>
-           <span class="history__word">${escapeHtml(s.word)}</span>
-           <span class="history__meta">${s.daily ? "Mot du jour · " : ""}${s.attempts} essai${s.attempts > 1 ? "s" : ""}${s.won ? ` · +${fmtNum(points)} pts` : ""}, ${formatDate(s.playedAt)}</span>
-         </span>
-         <span class="tag ${s.won ? "tag--won" : "tag--lost"}">${s.won ? "Gagné" : "Perdu"}</span>`;
-      const replay = document.createElement("div");
-      replay.className = "replay";
-      replay.hidden = true;
-      let loaded = false;
-      head.addEventListener("click", async () => {
-        replay.hidden = !replay.hidden;
-        if (loaded || replay.hidden) return;
-        loaded = true;
-        replay.innerHTML = '<span class="replay__msg">Chargement…</span>';
-        try {
-          const game = await api(`/api/games/${s.gameId}`);
-          renderReplay(replay, game.guesses || [], s.word);
-        } catch {
-          replay.innerHTML = '<span class="replay__msg">Essais indisponibles.</span>';
-        }
-      });
-      li.append(head, replay);
-      return li;
-    })
-  );
+  renderHistoryPage();
+}
+
+// Affiche une page de « Mes parties » + un pager (comme la vue admin) pour éviter
+// de scroller à l'infini quand on a beaucoup de parties.
+function renderHistoryPage() {
+  const scores = state.myScores || [];
+  const pages = Math.max(1, Math.ceil(scores.length / HISTORY_PAGE_SIZE));
+  if (historyPage > pages) historyPage = pages;
+  const slice = scores.slice((historyPage - 1) * HISTORY_PAGE_SIZE, historyPage * HISTORY_PAGE_SIZE);
+  el.historyList.replaceChildren(...slice.map(historyItem));
+  renderPager(el.historyPager, historyPage, pages, scores.length, "parties", (p) => {
+    historyPage = p;
+    renderHistoryPage();
+  });
+}
+
+// Construit un élément d'historique (en-tête cliquable + rejeu coloré des essais).
+function historyItem(s) {
+  const li = document.createElement("li");
+  li.className = "history__item";
+  const points = s.points ?? pointsFor(s.won, s.attempts, s.word.length);
+  const head = document.createElement("button");
+  head.type = "button";
+  head.className = "history__head";
+  head.innerHTML =
+    `<span>
+       <span class="history__word">${escapeHtml(s.word)}</span>
+       <span class="history__meta">${s.daily ? "Mot du jour · " : ""}${s.attempts} essai${s.attempts > 1 ? "s" : ""}${s.won ? ` · +${fmtNum(points)} pts` : ""}, ${formatDate(s.playedAt)}</span>
+     </span>
+     <span class="tag ${s.won ? "tag--won" : "tag--lost"}">${s.won ? "Gagné" : "Perdu"}</span>`;
+  const replay = document.createElement("div");
+  replay.className = "replay";
+  replay.hidden = true;
+  let loaded = false;
+  head.addEventListener("click", async () => {
+    replay.hidden = !replay.hidden;
+    if (loaded || replay.hidden) return;
+    loaded = true;
+    replay.innerHTML = '<span class="replay__msg">Chargement…</span>';
+    try {
+      const game = await api(`/api/games/${s.gameId}`);
+      renderReplay(replay, game.guesses || [], s.word);
+    } catch {
+      replay.innerHTML = '<span class="replay__msg">Essais indisponibles.</span>';
+    }
+  });
+  li.append(head, replay);
+  return li;
+}
+
+// Pager générique (précédent / suivant) réutilisable. onGo(nouvellePage) est appelé au clic.
+function renderPager(pagerEl, page, pages, total, label, onGo) {
+  if (!pagerEl) return;
+  if (pages <= 1) { pagerEl.hidden = true; return; }
+  pagerEl.hidden = false;
+  pagerEl.innerHTML =
+    `<button class="pager__btn" data-dir="-1" ${page <= 1 ? "disabled" : ""} aria-label="Page précédente">‹</button>
+     <span class="pager__info">Page ${page} / ${pages} · ${fmtNum(total)} ${label}</span>
+     <button class="pager__btn" data-dir="1" ${page >= pages ? "disabled" : ""} aria-label="Page suivante">›</button>`;
+  pagerEl.querySelectorAll(".pager__btn").forEach((b) =>
+    b.addEventListener("click", () => onGo(Math.min(pages, Math.max(1, page + Number(b.dataset.dir))))));
 }
 
 // Recolore un essai façon Motus (bien placé / présent / absent), gestion des doublons.

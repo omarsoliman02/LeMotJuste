@@ -14,13 +14,13 @@
 
   <!-- Thème/contraste appliqués avant le premier rendu. Script externe (pas inline)
        pour autoriser une CSP stricte (script-src 'self') en production. -->
-  <script src="theme.js?v=31"></script>
+  <script src="theme.js?v=32"></script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=31">
+  <link rel="stylesheet" href="styles.css?v=32">
 </head>
 <body>
   <div class="app">
@@ -232,6 +232,7 @@
 
       <h2 class="modal__title">Mes parties</h2>
       <ul class="history" id="historyList"></ul>
+      <div class="pager" id="historyPager" hidden></div>
       <p class="empty" id="historyEmpty">Aucune partie terminée pour le moment.</p>
 
       <h2 class="modal__title">Classement</h2>
@@ -305,6 +306,6 @@
     <button class="update-bar__btn" id="updateReload" type="button">Mettre à jour</button>
   </div>
 
-  <script src="app.js?v=31"></script>
+  <script src="app.js?v=32"></script>
 </body>
 </html>

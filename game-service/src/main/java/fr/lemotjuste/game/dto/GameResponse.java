@@ -19,6 +19,7 @@ public record GameResponse(
         int timeLimitSeconds,
         int hintsUsed,
         List<String> guesses,
+        String solution,
         Instant createdAt
 ) {
 
@@ -27,6 +28,8 @@ public record GameResponse(
         String secret = game.getSecretWord();
         String raw = game.getGuesses();
         List<String> guesses = (raw == null || raw.isBlank()) ? List.of() : List.of(raw.split(","));
+        // Le mot mystère n'est révélé QUE lorsque la partie est terminée (jamais en cours).
+        boolean finished = game.getStatus() != fr.lemotjuste.game.entity.GameStatus.IN_PROGRESS;
         return new GameResponse(
                 game.getId(),
                 game.getPlayerId(),
@@ -39,6 +42,7 @@ public record GameResponse(
                 game.isRanked() ? timeLimitSeconds : 0,
                 game.getHintsUsed(),
                 guesses,
+                finished ? secret : null,
                 game.getCreatedAt()
         );
     }
