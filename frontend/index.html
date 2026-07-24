@@ -14,13 +14,13 @@
 
   <!-- Thème/contraste appliqués avant le premier rendu. Script externe (pas inline)
        pour autoriser une CSP stricte (script-src 'self') en production. -->
-  <script src="theme.js?v=32"></script>
+  <script src="theme.js?v=33"></script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=32">
+  <link rel="stylesheet" href="styles.css?v=33">
 </head>
 <body>
   <div class="app">
@@ -215,11 +215,17 @@
     <div class="modal__card" role="dialog" aria-modal="true" aria-label="Statistiques">
       <button class="modal__close" data-close type="button" aria-label="Fermer">×</button>
 
+      <!-- 1) Mes stats -->
       <h2 class="modal__title">Mes statistiques</h2>
       <div class="stats-grid" id="statsTiles"></div>
       <p class="stats-caption">Répartition des essais gagnants</p>
       <div class="dist" id="distBars"></div>
       <div class="lenstats" id="lengthStats"></div>
+
+      <!-- 2) Classements -->
+      <h2 class="modal__title">Classement général</h2>
+      <ol class="leaderboard" id="leaderboardList"></ol>
+      <p class="empty" id="leaderboardEmpty">Le classement est encore vide.</p>
 
       <h2 class="modal__title">Classement Ranked</h2>
       <div class="ranked-me" id="rankedMe"></div>
@@ -230,14 +236,11 @@
       <ol class="leaderboard" id="dailyList"></ol>
       <p class="empty" id="dailyEmpty">Personne n'a encore trouvé le mot du jour.</p>
 
+      <!-- 3) Mes parties (mots devinés : normale, classée, mot du jour) -->
       <h2 class="modal__title">Mes parties</h2>
       <ul class="history" id="historyList"></ul>
       <div class="pager" id="historyPager" hidden></div>
       <p class="empty" id="historyEmpty">Aucune partie terminée pour le moment.</p>
-
-      <h2 class="modal__title">Classement</h2>
-      <ol class="leaderboard" id="leaderboardList"></ol>
-      <p class="empty" id="leaderboardEmpty">Le classement est encore vide.</p>
     </div>
   </div>
 
@@ -306,6 +309,6 @@
     <button class="update-bar__btn" id="updateReload" type="button">Mettre à jour</button>
   </div>
 
-  <script src="app.js?v=32"></script>
+  <script src="app.js?v=33"></script>
 </body>
 </html>

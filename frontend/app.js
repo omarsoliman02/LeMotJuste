@@ -91,7 +91,8 @@ const state = {
   nativeKb: IS_TOUCH && localStorage.getItem(NATIVE_KB_KEY) === "1",
   hints: [],        // indices révélés sur la partie en cours : { position, letter }
   maxHints: 2,      // renvoyé par le serveur à chaque indice
-  myScores: [],     // dernier historique chargé (sert à afficher les points en fin de partie)
+  myScores: [],     // scores casual (points exacts en fin de partie)
+  myGames: [],      // toutes mes parties terminées (liste « Mes parties »)
   totalPoints: 0,   // points cumulés du joueur (seuil requis pour s'offrir un indice)
   currentStreak: 0, // série de victoires en cours (sert au bonus affiché en fin de partie)
   ranked: null,     // dernier classement ranked du joueur (RP, palier) — voir loadRankedStanding
@@ -1129,58 +1130,58 @@ const HISTORY_PAGE_SIZE = 10;
 let historyPage = 1;
 
 async function loadHistory() {
-  let scores = [];
-  try {
-    scores = await api(`/api/scores?playerId=${state.player.id}`);
-  } catch { scores = []; }
+  // Parties (toutes : normale, mot du jour, classée) pour la liste ; scores en parallèle
+  // pour les points exacts affichés en fin de partie casual (voir endGame).
+  const [games, scores] = await Promise.all([
+    api(`/api/games?playerId=${state.player.id}`).catch(() => []),
+    api(`/api/scores?playerId=${state.player.id}`).catch(() => []),
+  ]);
   state.myScores = scores;
+  state.myGames = games.filter((g) => g.status === "WON" || g.status === "LOST");
   historyPage = 1;
-  el.historyEmpty.hidden = scores.length > 0;
+  el.historyEmpty.hidden = state.myGames.length > 0;
   renderHistoryPage();
 }
 
 // Affiche une page de « Mes parties » + un pager (comme la vue admin) pour éviter
 // de scroller à l'infini quand on a beaucoup de parties.
 function renderHistoryPage() {
-  const scores = state.myScores || [];
-  const pages = Math.max(1, Math.ceil(scores.length / HISTORY_PAGE_SIZE));
+  const games = state.myGames || [];
+  const pages = Math.max(1, Math.ceil(games.length / HISTORY_PAGE_SIZE));
   if (historyPage > pages) historyPage = pages;
-  const slice = scores.slice((historyPage - 1) * HISTORY_PAGE_SIZE, historyPage * HISTORY_PAGE_SIZE);
+  const slice = games.slice((historyPage - 1) * HISTORY_PAGE_SIZE, historyPage * HISTORY_PAGE_SIZE);
   el.historyList.replaceChildren(...slice.map(historyItem));
-  renderPager(el.historyPager, historyPage, pages, scores.length, "parties", (p) => {
+  renderPager(el.historyPager, historyPage, pages, games.length, "parties", (p) => {
     historyPage = p;
     renderHistoryPage();
   });
 }
 
-// Construit un élément d'historique (en-tête cliquable + rejeu coloré des essais).
-function historyItem(s) {
+// Un élément « Mes parties » : le mot + le type (normale / classée / mot du jour) + le
+// résultat, dépliable en rejeu coloré des essais (fournis avec la partie).
+function historyItem(g) {
   const li = document.createElement("li");
   li.className = "history__item";
-  const points = s.points ?? pointsFor(s.won, s.attempts, s.word.length);
+  const type = g.ranked ? "Partie classée" : g.daily ? "Mot du jour" : "Partie normale";
+  const won = g.status === "WON";
+  const used = MAX_ATTEMPTS - g.attemptsLeft;
   const head = document.createElement("button");
   head.type = "button";
   head.className = "history__head";
   head.innerHTML =
-    `<span>
-       <span class="history__word">${escapeHtml(s.word)}</span>
-       <span class="history__meta">${s.daily ? "Mot du jour · " : ""}${s.attempts} essai${s.attempts > 1 ? "s" : ""}${s.won ? ` · +${fmtNum(points)} pts` : ""}, ${formatDate(s.playedAt)}</span>
+    `<span class="history__info">
+       <span class="history__word">${escapeHtml(g.solution || "?")}</span>
+       <span class="history__type">${type}</span>
+       <span class="history__meta">${used} essai${used > 1 ? "s" : ""}, ${formatDate(g.createdAt)}</span>
      </span>
-     <span class="tag ${s.won ? "tag--won" : "tag--lost"}">${s.won ? "Gagné" : "Perdu"}</span>`;
+     <span class="tag ${won ? "tag--won" : "tag--lost"}">${won ? "Gagné" : "Perdu"}</span>`;
   const replay = document.createElement("div");
   replay.className = "replay";
   replay.hidden = true;
-  let loaded = false;
-  head.addEventListener("click", async () => {
+  head.addEventListener("click", () => {
     replay.hidden = !replay.hidden;
-    if (loaded || replay.hidden) return;
-    loaded = true;
-    replay.innerHTML = '<span class="replay__msg">Chargement…</span>';
-    try {
-      const game = await api(`/api/games/${s.gameId}`);
-      renderReplay(replay, game.guesses || [], s.word);
-    } catch {
-      replay.innerHTML = '<span class="replay__msg">Essais indisponibles.</span>';
+    if (!replay.hidden && replay.childElementCount === 0) {
+      renderReplay(replay, g.guesses || [], g.solution || "");
     }
   });
   li.append(head, replay);
@@ -1417,12 +1418,14 @@ function renderFilteredAdminTables(resetPage = false) {
   const games = adminData.games.filter((g) =>
     matchesPlayer(g.playerId) && matchesDate(g.createdAt)
     && (size === null || g.wordLength === size)
-    && (!status || g.status === status));
+    && (!status || g.status === status))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // plus récentes d'abord
   const scores = adminData.scores.filter((s) =>
     matchesPlayer(s.playerId) && matchesDate(s.playedAt)
     && (size === null || s.word.length === size)
     && !statusExcludesScores
-    && (scoreWon === null || s.won === scoreWon));
+    && (scoreWon === null || s.won === scoreWon))
+    .sort((a, b) => new Date(b.playedAt) - new Date(a.playedAt)); // plus récents d'abord
 
   renderPagedTable(el.adminGames, el.adminGamesPager, "games",
     ["Joueur", "Taille de grille", "Statut", "Créée le"],

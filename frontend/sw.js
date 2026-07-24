@@ -2,13 +2,13 @@
 // chargement hors ligne. Les appels /api/** ne sont JAMAIS mis en cache (données
 // de jeu en temps réel) ; ils partent sur le réseau sans interception.
 // À chaque livraison du frontend : bumper CACHE (aligné sur le ?v= de index.html).
-const CACHE = "lemotjuste-v32";
+const CACHE = "lemotjuste-v33";
 const SHELL = [
   "./",
   "./index.html",
-  "./theme.js?v=32",
-  "./styles.css?v=32",
-  "./app.js?v=32",
+  "./theme.js?v=33",
+  "./styles.css?v=33",
+  "./app.js?v=33",
   "./favicon.svg",
   "./manifest.webmanifest",
 ];

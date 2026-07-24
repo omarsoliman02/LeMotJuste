@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -69,6 +70,15 @@ public class GameController {
     @ApiResponse(responseCode = "404", description = "Partie introuvable")
     public GameResponse get(@PathVariable Long id) {
         return service.get(id);
+    }
+
+    @GetMapping(params = "playerId")
+    @Operation(summary = "Parties d'un joueur",
+            description = "Toutes les parties d'un joueur (normale, mot du jour, classée), "
+                    + "de la plus récente à la plus ancienne. Le mot n'est révélé que sur les "
+                    + "parties terminées.")
+    public List<GameResponse> getByPlayer(@RequestParam Long playerId) {
+        return service.getByPlayer(playerId);
     }
 
     @GetMapping

@@ -121,6 +121,13 @@ public class GameService {
         return repository.findAll().stream().map(this::toResponse).toList();
     }
 
+    /** Parties d'un joueur (toutes : normale, mot du jour, classée), plus récentes d'abord. */
+    @Transactional(readOnly = true)
+    public List<GameResponse> getByPlayer(Long playerId) {
+        return repository.findByPlayerIdOrderByCreatedAtDesc(playerId).stream()
+                .map(this::toResponse).toList();
+    }
+
     /**
      * Abandon volontaire d'une partie en cours (changement de taille de grille, changement de
      * joueur...). Pas de score enregistré : une partie abandonnée n'est ni gagnée ni perdue.
